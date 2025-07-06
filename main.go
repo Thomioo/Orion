@@ -9,15 +9,16 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// Wrap all handlers with CORS middleware
+	http.HandleFunc("/", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		textContent := "All Good"
 		w.Write([]byte(textContent))
-	})
-	http.HandleFunc("/conversation", handleConversation)
-	http.HandleFunc("/message", handleMessage)
-	http.HandleFunc("/file", handleFile)
+	}))
+	http.HandleFunc("/conversation", corsMiddleware(handleConversation))
+	http.HandleFunc("/message", corsMiddleware(handleMessage))
+	http.HandleFunc("/file", corsMiddleware(handleFile))
 	fmt.Println("Server is running at http://" + getLocalIP() + ":8000")
 	http.ListenAndServe(getLocalIP()+":8000", nil)
 }
@@ -38,10 +39,23 @@ func getLocalIP() string {
 }
 
 // CORS middleware function
-func enableCORS(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers for all requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		w.Header().Set("Access-Control-Allow-Credentials", "false")
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Message structure for conversation
@@ -55,14 +69,6 @@ var conversationHistory []Message
 
 // Handle conversation endpoint
 func handleConversation(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -74,14 +80,6 @@ func handleConversation(w http.ResponseWriter, r *http.Request) {
 
 // Handle message endpoint
 func handleMessage(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -102,14 +100,6 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 
 // Handle file endpoint
 func handleFile(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

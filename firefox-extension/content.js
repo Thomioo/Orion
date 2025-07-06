@@ -1,18 +1,25 @@
-// Ask background script to fetch conversation and print to console
-console.log('Content script: Sending message to background script');
-browser.runtime.sendMessage({ type: 'fetch-conversation' })
-    .then(response => {
-        console.log('Content script: Received response from background script:', response);
-        if (response.success) {
-            console.log('Conversation:', response.data);
-        } else {
-            console.error('Error fetching conversation:', response.error);
-        }
-    })
-    .catch(err => {
-        console.error('Error communicating with background script:', err);
-        console.error('Error details:', err.message, err.stack);
-    });
+// Prevent multiple executions of content script
+if (window.orionContentScriptLoaded) {
+    console.log('Content script already loaded, skipping');
+} else {
+    window.orionContentScriptLoaded = true;
+
+    // Ask background script to fetch conversation and print to console
+    console.log('Content script: Sending message to background script');
+    browser.runtime.sendMessage({ type: 'fetch-conversation' })
+        .then(response => {
+            console.log('Content script: Received response from background script:', response);
+            if (response.success) {
+                console.log('Conversation:', response.data);
+            } else {
+                console.error('Error fetching conversation:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+            console.error('Error details:', err.message, err.stack);
+        });
+}
 // Listen for toggle-sidebar message from background.js
 browser.runtime.onMessage.addListener((msg) => {
     if (msg === 'toggle-sidebar') {

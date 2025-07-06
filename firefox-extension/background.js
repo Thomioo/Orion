@@ -12,7 +12,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        fetch('http://192.168.2.101:8000/conversation')
+        fetch('http://192.168.2.101:8000/conversation', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            mode: 'cors',
+            credentials: 'omit'
+        })
             .then(response => {
                 console.log('Background script: Fetch response received');
                 console.log('Background script: Response ok:', response.ok);
@@ -44,8 +51,12 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log('Background script: Sending message');
         fetch('http://192.168.2.101:8000/message', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: request.text })
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: request.text }),
+            mode: 'cors',
+            credentials: 'omit'
         })
             .then(response => response.json())
             .then(data => {
@@ -63,7 +74,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log('Background script: Sending file');
         fetch('http://192.168.2.101:8000/file', {
             method: 'POST',
-            body: request.formData
+            body: request.formData,
+            mode: 'cors',
+            credentials: 'omit'
         })
             .then(response => response.json())
             .then(data => {
