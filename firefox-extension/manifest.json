@@ -1,15 +1,15 @@
 {
     "manifest_version": 2,
-    "name": "Sleek Sidebar",
+    "name": "Orion",
     "version": "1.1",
-    "description": "A sleek sidebar that slides in on shortcut or button click.",
+    "description": "Orion, a powerful tool that slides in on shortcut or button click.",
     "background": {
         "scripts": [
             "background.js"
         ]
     },
     "browser_action": {
-        "default_title": "Sleek Sidebar"
+        "default_title": "Orion"
     },
     "permissions": [
         "tabs",

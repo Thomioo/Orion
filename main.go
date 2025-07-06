@@ -9,7 +9,12 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/", HandleMain)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		textContent := "All Good"
+		w.Write([]byte(textContent))
+	})
 	http.HandleFunc("/conversation", handleConversation)
 	http.HandleFunc("/message", handleMessage)
 	http.HandleFunc("/file", handleFile)
