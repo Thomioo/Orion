@@ -1,0 +1,29 @@
+{
+    "manifest_version": 2,
+    "name": "Sleek Sidebar",
+    "version": "1.1",
+    "description": "A sleek sidebar that slides in on shortcut or button click.",
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "sidebar_action": {
+        "default_title": "Sleek Sidebar",
+        "default_panel": "sidebar.html"
+    },
+    "permissions": [
+        "tabs"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+}
