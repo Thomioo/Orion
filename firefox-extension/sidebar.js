@@ -1,6 +1,6 @@
 // sidebar.js: Handles conversation UI and communication with Go server
 
-const API_BASE = 'http://localhost:8000'; // Adjust if needed
+const API_BASE = 'http://192.168.2.101:8000'; // Adjust if needed
 
 const conversationDiv = document.createElement('div');
 conversationDiv.id = 'conversation';
@@ -62,15 +62,20 @@ function addMessage(msg, isOwn = false, fileUrl = null) {
 function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
-    fetch(`${API_BASE}/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-    }).then(r => r.json()).then(res => {
-        addMessage(text, true);
-        input.value = '';
-        loadConversation();
-    });
+
+    browser.runtime.sendMessage({ type: 'send-message', text: text })
+        .then(response => {
+            if (response.success) {
+                addMessage(text, true);
+                input.value = '';
+                loadConversation();
+            } else {
+                console.error('Error sending message:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+        });
 }
 
 function sendFile() {
@@ -78,27 +83,45 @@ function sendFile() {
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
-    fetch(`${API_BASE}/file`, {
-        method: 'POST',
-        body: formData
-    }).then(r => r.json()).then(res => {
-        addMessage(file.name, true, res.url);
-        loadConversation();
-    });
+
+    browser.runtime.sendMessage({ type: 'send-file', formData: formData })
+        .then(response => {
+            if (response.success) {
+                addMessage(file.name, true, response.data.url);
+                loadConversation();
+            } else {
+                console.error('Error sending file:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+        });
 }
 
 function loadConversation() {
-    fetch(`${API_BASE}/conversation`)
-        .then(r => r.json())
-        .then(history => {
-            conversationDiv.innerHTML = '';
-            history.forEach(item => {
-                if (item.fileUrl) {
-                    addMessage(item.text, false, item.fileUrl);
-                } else {
-                    addMessage(item.text, false);
+    // Use background script to fetch conversation
+    browser.runtime.sendMessage({ type: 'fetch-conversation' })
+        .then(response => {
+            if (response.success) {
+                try {
+                    const history = JSON.parse(response.data);
+                    conversationDiv.innerHTML = '';
+                    history.forEach(item => {
+                        if (item.fileUrl) {
+                            addMessage(item.text, false, item.fileUrl);
+                        } else {
+                            addMessage(item.text, false);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing conversation data:', e);
                 }
-            });
+            } else {
+                console.error('Error fetching conversation:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
         });
 }
 

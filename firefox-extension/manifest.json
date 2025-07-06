@@ -8,12 +8,17 @@
             "background.js"
         ]
     },
-    "sidebar_action": {
-        "default_title": "Sleek Sidebar",
-        "default_panel": "sidebar.html"
+    "browser_action": {
+        "default_title": "Sleek Sidebar"
     },
     "permissions": [
-        "tabs"
+        "tabs",
+        "activeTab",
+        "http://192.168.2.101:8000/*"
+    ],
+    "web_accessible_resources": [
+        "sidebar.html",
+        "sidebar.js"
     ],
     "content_scripts": [
         {
