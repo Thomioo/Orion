@@ -16,7 +16,29 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func main() {
+var (
+	serverPort = "8000" // Default port, can be changed if needed
+)
+
+func findAvailablePort(startPort string) string {
+	port := startPort
+	for i := 0; i < 10; i++ { // Try up to 10 different ports
+		listener, err := net.Listen("tcp", ":"+port)
+		if err == nil {
+			listener.Close()
+			return port
+		}
+	}
+	return startPort // Return original if all fail
+}
+
+func startServer() {
+	// Find an available port
+	availablePort := findAvailablePort(serverPort)
+	if availablePort != serverPort {
+		fmt.Printf("[INFO] Port %s is busy, using port %s instead\n", serverPort, availablePort)
+		serverPort = availablePort
+	}
 	// Ensure uploads directory exists
 	if err := ensureUploadsDir(); err != nil {
 		fmt.Printf("[ERROR] Failed to create uploads directory: %v\n", err)
@@ -62,8 +84,13 @@ func main() {
 		handleFile(w, r, "phone")
 	}))
 
-	fmt.Println("Server is running at http://" + getLocalIP() + ":8000")
-	http.ListenAndServe(getLocalIP()+":8000", nil)
+	fmt.Printf("[INFO] Server starting on http://%s:%s\n", getLocalIP(), serverPort)
+
+	// Start the server
+	if err := http.ListenAndServe(getLocalIP()+":"+serverPort, nil); err != nil {
+		fmt.Printf("[ERROR] Server failed to start on port %s: %v\n", serverPort, err)
+		fmt.Printf("[INFO] Try closing other applications using port %s and restart\n", serverPort)
+	}
 }
 
 func getLocalIP() string {
@@ -349,7 +376,7 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 	go connectionManager.BroadcastUpdate()
 
 	// Generate file URL using the unique filename
-	fileURL := fmt.Sprintf("http://%s:8000/uploads/%s", getLocalIP(), uniqueFilename)
+	fileURL := fmt.Sprintf("http://%s:%s/uploads/%s", getLocalIP(), serverPort, uniqueFilename)
 	fmt.Printf("[DEBUG] File: Generated download URL: %s\n", fileURL)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -646,6 +673,10 @@ func (cm *ConnectionManager) BroadcastYouTubeInfo(videoInfo YouTubeVideoInfo) {
 }
 
 var connectionManager = NewConnectionManager()
+
+func main() {
+	startServer()
+}
 
 // Handle YouTube video info from PC
 func handleYouTubeInfo(w http.ResponseWriter, r *http.Request) {
