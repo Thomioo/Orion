@@ -124,7 +124,21 @@ function loadConversation() {
                                     messageDiv.textContent = item.content;
                                 }
                             } else if (item.type === 'file') {
-                                messageDiv.innerHTML = `📎 ${item.content}`;
+                                // Parse filename and unique filename from content
+                                const parts = item.content.split('|');
+                                const displayName = parts[0];
+                                const uniqueFilename = parts[1] || parts[0]; // fallback for old format
+
+                                // Make file message clickable for download
+                                const fileSpan = document.createElement('span');
+                                fileSpan.style.cssText = 'color: #4A9EFF; text-decoration: underline; cursor: pointer;';
+                                fileSpan.textContent = displayName;
+                                fileSpan.addEventListener('click', function () {
+                                    downloadFile(uniqueFilename, displayName);
+                                });
+
+                                messageDiv.innerHTML = '📎 ';
+                                messageDiv.appendChild(fileSpan);
                             }
 
                             // Add timestamp
@@ -186,7 +200,9 @@ function setupAttachIcon() {
 function setupAttachButton() {
     const attachButton = document.getElementById('attachFileButton');
     const fileInput = document.getElementById('fileInput');
+    const inputField = document.getElementById('inputField');
 
+    // Set up attach button functionality
     if (attachButton && fileInput) {
         attachButton.addEventListener('click', function () {
             fileInput.click();
@@ -195,10 +211,108 @@ function setupAttachButton() {
         fileInput.addEventListener('change', function () {
             if (this.files.length > 0) {
                 console.log('File selected:', this.files[0].name);
-                // You can add file handling logic here
+                sendFile(this.files[0]);
             }
         });
     } else {
         console.error('Attach button or file input not found');
     }
+
+    // Set up input field functionality
+    if (inputField) {
+        inputField.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    } else {
+        console.error('Input field not found');
+    }
+}
+
+function sendMessage() {
+    const inputField = document.getElementById('inputField');
+    if (!inputField) {
+        console.error('Input field not found');
+        return;
+    }
+
+    const messageText = inputField.value.trim();
+    if (!messageText) {
+        console.log('Empty message, not sending');
+        return;
+    }
+
+    console.log('Sending message:', messageText);
+
+    // Send message via background script
+    browser.runtime.sendMessage({
+        type: 'send-message',
+        text: messageText
+    })
+        .then(response => {
+            if (response.success) {
+                console.log('Message sent successfully:', response);
+                inputField.value = ''; // Clear input field
+                // Reload conversation to show the new message
+                loadConversation();
+            } else {
+                console.error('Error sending message:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+        });
+}
+
+function sendFile(file) {
+    console.log('Sending file:', file.name);
+
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Send file via background script
+    browser.runtime.sendMessage({
+        type: 'send-file',
+        formData: formData
+    })
+        .then(response => {
+            if (response.success) {
+                console.log('File sent successfully:', response);
+                // Clear file input
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) fileInput.value = '';
+                // Reload conversation to show the new file
+                loadConversation();
+            } else {
+                console.error('Error sending file:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+        });
+}
+
+// Download file function
+function downloadFile(uniqueFilename, displayName) {
+    console.log('Downloading file:', displayName, 'with unique name:', uniqueFilename);
+
+    // Get server URL from background script and download file
+    browser.runtime.sendMessage({
+        type: 'download-file',
+        uniqueFilename: uniqueFilename,
+        displayName: displayName
+    })
+        .then(response => {
+            if (response.success) {
+                console.log('Download initiated successfully for:', displayName);
+            } else {
+                console.error('Error downloading file:', response.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error communicating with background script:', err);
+        });
 }

@@ -1,9 +1,18 @@
+// Server configuration
+const SERVER_URL = 'http://192.168.2.101:8000';
+
 // Listen for fetch-conversation requests from content script
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background script: Received message:', request.type);
 
+    if (request.type === 'get-server-url') {
+        console.log('Background script: Providing server URL');
+        sendResponse({ success: true, serverUrl: SERVER_URL });
+        return;
+    }
+
     if (request.type === 'fetch-conversation') {
-        console.log('Background script: Attempting to fetch from 192.168.2.101:8000/pc/items');
+        console.log('Background script: Attempting to fetch from', SERVER_URL + '/pc/items');
 
         // Test if fetch API is available
         if (typeof fetch === 'undefined') {
@@ -12,7 +21,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        fetch('http://192.168.2.101:8000/pc/items', {
+        fetch(SERVER_URL + '/pc/items', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -49,7 +58,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.type === 'send-message') {
         console.log('Background script: Sending message');
-        fetch('http://192.168.2.101:8000/pc/message', {
+        fetch(SERVER_URL + '/pc/message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -72,7 +81,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.type === 'send-file') {
         console.log('Background script: Sending file');
-        fetch('http://192.168.2.101:8000/pc/file', {
+        fetch(SERVER_URL + '/pc/file', {
             method: 'POST',
             body: request.formData,
             mode: 'cors',
@@ -84,6 +93,27 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             })
             .catch(error => {
                 console.error('Background script: File send error:', error);
+                sendResponse({ success: false, error: error.toString() });
+            });
+        return true;
+    }
+
+    if (request.type === 'download-file') {
+        console.log('Background script: Downloading file:', request.displayName);
+        const downloadUrl = `${SERVER_URL}/uploads/${request.uniqueFilename}`;
+
+        // Use browser.downloads API to download the file
+        browser.downloads.download({
+            url: downloadUrl,
+            filename: request.displayName,
+            saveAs: false // Don't show save dialog, use default download location
+        })
+            .then(downloadId => {
+                console.log('Background script: Download started with ID:', downloadId);
+                sendResponse({ success: true, downloadId: downloadId });
+            })
+            .catch(error => {
+                console.error('Background script: Download error:', error);
                 sendResponse({ success: false, error: error.toString() });
             });
         return true;

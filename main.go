@@ -3,20 +3,31 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 func main() {
+	// Ensure uploads directory exists
+	if err := ensureUploadsDir(); err != nil {
+		fmt.Printf("[ERROR] Failed to create uploads directory: %v\n", err)
+		os.Exit(1)
+	}
+
 	http.HandleFunc("/", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		textContent := "All Good"
 		w.Write([]byte(textContent))
 	}))
+
+	// Serve uploaded files
+	http.HandleFunc("/uploads/", corsMiddleware(handleFileDownload))
 
 	// PC endpoints
 	http.HandleFunc("/pc/items", corsMiddleware(handlePCItems))
@@ -90,6 +101,7 @@ type FlowData struct {
 }
 
 const dataFile = "memory/data.json"
+const uploadsDir = "memory/uploads"
 
 // Load data from file
 func loadData() FlowData {
@@ -253,13 +265,38 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 
 	fmt.Printf("[DEBUG] File: Received file from %s: '%s' (size: %d bytes)\n", from, header.Filename, header.Size)
 
-	// Create new item
+	// Generate unique filename to avoid conflicts
+	uniqueFilename := fmt.Sprintf("%s_%s", generateID(), header.Filename)
+	filePath := filepath.Join(uploadsDir, uniqueFilename)
+
+	fmt.Printf("[DEBUG] File: Saving to path: %s\n", filePath)
+
+	// Create the file on disk
+	dst, err := os.Create(filePath)
+	if err != nil {
+		fmt.Printf("[ERROR] File: Unable to create file: %v\n", err)
+		http.Error(w, "Unable to save file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	// Copy file content
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		fmt.Printf("[ERROR] File: Unable to save file content: %v\n", err)
+		http.Error(w, "Unable to save file", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("[DEBUG] File: File saved successfully\n")
+
+	// Create new item with the unique filename for storage
 	item := Item{
 		ID:        generateID(),
 		Timestamp: time.Now(),
 		From:      from,
 		Type:      "file",
-		Content:   header.Filename,
+		Content:   fmt.Sprintf("%s|%s", header.Filename, uniqueFilename), // Store both display name and unique filename
 	}
 
 	fmt.Printf("[DEBUG] File: Created item with ID: %s\n", item.ID)
@@ -279,9 +316,9 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 
 	fmt.Printf("[DEBUG] File: Data saved successfully\n")
 
-	// For now, just return a mock URL - you can implement actual file storage later
-	fileURL := fmt.Sprintf("http://%s:8000/uploads/%s", getLocalIP(), header.Filename)
-	fmt.Printf("[DEBUG] File: Generated mock URL: %s\n", fileURL)
+	// Generate file URL using the unique filename
+	fileURL := fmt.Sprintf("http://%s:8000/uploads/%s", getLocalIP(), uniqueFilename)
+	fmt.Printf("[DEBUG] File: Generated download URL: %s\n", fileURL)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -290,4 +327,54 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 		"url":    fileURL,
 	})
 	fmt.Printf("[DEBUG] File: Response sent successfully\n")
+}
+
+// Ensure uploads directory exists
+func ensureUploadsDir() error {
+	fmt.Printf("[DEBUG] Ensuring uploads directory exists: %s\n", uploadsDir)
+	err := os.MkdirAll(uploadsDir, 0755)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to create uploads directory: %v\n", err)
+		return err
+	}
+	fmt.Printf("[DEBUG] Uploads directory ready\n")
+	return nil
+}
+
+// Handle file downloads
+func handleFileDownload(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] File download requested - URL: %s\n", r.URL.Path)
+
+	if r.Method != "GET" {
+		fmt.Printf("[ERROR] File download: Method not allowed: %s\n", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract filename from URL path (remove "/uploads/" prefix)
+	filename := r.URL.Path[9:] // Remove "/uploads/"
+	if filename == "" {
+		fmt.Printf("[ERROR] File download: No filename provided\n")
+		http.Error(w, "No filename provided", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join(uploadsDir, filename)
+	fmt.Printf("[DEBUG] File download: Looking for file at %s\n", filePath)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fmt.Printf("[ERROR] File download: File not found: %s\n", filePath)
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	// Set headers to force download
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	// Serve the file
+	fmt.Printf("[DEBUG] File download: Serving file %s\n", filename)
+	http.ServeFile(w, r, filePath)
+	fmt.Printf("[DEBUG] File download: File served successfully\n")
 }
