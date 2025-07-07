@@ -118,6 +118,29 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         return true;
     }
+
+    if (request.type === 'youtube-video-info') {
+        console.log('Background script: Sending YouTube video info:', request.videoInfo);
+        fetch(SERVER_URL + '/pc/youtube-info', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(request.videoInfo),
+            mode: 'cors',
+            credentials: 'omit'
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Background script: YouTube info sent successfully:', data);
+                sendResponse({ success: true, data });
+            })
+            .catch(error => {
+                console.error('Background script: YouTube info send error:', error);
+                sendResponse({ success: false, error: error.toString() });
+            });
+        return true;
+    }
 });
 browser.browserAction.onClicked.addListener((tab) => {
     browser.tabs.sendMessage(tab.id, 'toggle-sidebar');

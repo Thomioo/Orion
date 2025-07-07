@@ -51,6 +51,7 @@ func main() {
 	http.HandleFunc("/pc/file", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		handleFile(w, r, "PC")
 	}))
+	http.HandleFunc("/pc/youtube-info", corsMiddleware(handleYouTubeInfo))
 
 	// Mobile endpoints
 	http.HandleFunc("/mobile/items", corsMiddleware(handleMobileItems))
@@ -107,6 +108,17 @@ type Item struct {
 	From      string    `json:"from"`
 	Type      string    `json:"type"`
 	Content   string    `json:"content"`
+}
+
+// YouTube video info structure
+type YouTubeVideoInfo struct {
+	VideoID       string `json:"videoId"`
+	Title         string `json:"title"`
+	CurrentTime   int    `json:"currentTime"`
+	Duration      int    `json:"duration"`
+	TimestampLink string `json:"timestampLink"`
+	IsPlaying     bool   `json:"isPlaying"`
+	URL           string `json:"url"`
 }
 
 // Flow data structure
@@ -475,8 +487,8 @@ func handlePCWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// Add connection to manager
-	connectionManager.AddConnection(conn)
-	defer connectionManager.RemoveConnection(conn)
+	connectionManager.AddPCConnection(conn)
+	defer connectionManager.RemovePCConnection(conn)
 
 	fmt.Printf("[DEBUG] PC WebSocket connection established\n")
 
@@ -513,8 +525,8 @@ func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// Add connection to manager
-	connectionManager.AddConnection(conn)
-	defer connectionManager.RemoveConnection(conn)
+	connectionManager.AddMobileConnection(conn)
+	defer connectionManager.RemoveMobileConnection(conn)
 
 	fmt.Printf("[DEBUG] Mobile WebSocket connection established\n")
 
@@ -548,26 +560,44 @@ var upgrader = websocket.Upgrader{
 
 // WebSocket connection management
 type ConnectionManager struct {
-	connections map[*websocket.Conn]bool
-	mutex       sync.RWMutex
+	pcConnections     map[*websocket.Conn]bool
+	mobileConnections map[*websocket.Conn]bool
+	mutex             sync.RWMutex
 }
 
 func NewConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
-		connections: make(map[*websocket.Conn]bool),
+		pcConnections:     make(map[*websocket.Conn]bool),
+		mobileConnections: make(map[*websocket.Conn]bool),
 	}
 }
 
-func (cm *ConnectionManager) AddConnection(conn *websocket.Conn) {
+func (cm *ConnectionManager) AddPCConnection(conn *websocket.Conn) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
-	cm.connections[conn] = true
+	cm.pcConnections[conn] = true
+	fmt.Printf("[DEBUG] ConnectionManager: Added PC connection, total PC: %d\n", len(cm.pcConnections))
 }
 
-func (cm *ConnectionManager) RemoveConnection(conn *websocket.Conn) {
+func (cm *ConnectionManager) AddMobileConnection(conn *websocket.Conn) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
-	delete(cm.connections, conn)
+	cm.mobileConnections[conn] = true
+	fmt.Printf("[DEBUG] ConnectionManager: Added mobile connection, total mobile: %d\n", len(cm.mobileConnections))
+}
+
+func (cm *ConnectionManager) RemovePCConnection(conn *websocket.Conn) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	delete(cm.pcConnections, conn)
+	fmt.Printf("[DEBUG] ConnectionManager: Removed PC connection, total PC: %d\n", len(cm.pcConnections))
+}
+
+func (cm *ConnectionManager) RemoveMobileConnection(conn *websocket.Conn) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	delete(cm.mobileConnections, conn)
+	fmt.Printf("[DEBUG] ConnectionManager: Removed mobile connection, total mobile: %d\n", len(cm.mobileConnections))
 }
 
 func (cm *ConnectionManager) BroadcastUpdate() {
@@ -577,17 +607,70 @@ func (cm *ConnectionManager) BroadcastUpdate() {
 	// Load latest data
 	data := loadData()
 
-	for conn := range cm.connections {
+	// Broadcast to all connections (both PC and mobile)
+	allConnections := make([]*websocket.Conn, 0, len(cm.pcConnections)+len(cm.mobileConnections))
+	for conn := range cm.pcConnections {
+		allConnections = append(allConnections, conn)
+	}
+	for conn := range cm.mobileConnections {
+		allConnections = append(allConnections, conn)
+	}
+
+	for _, conn := range allConnections {
 		err := conn.WriteJSON(map[string]interface{}{
 			"type": "update",
 			"data": data,
 		})
 		if err != nil {
 			fmt.Printf("Error broadcasting to connection: %v", err)
-			delete(cm.connections, conn)
-			conn.Close()
 		}
 	}
 }
 
+// Broadcast YouTube video info to mobile connections only
+func (cm *ConnectionManager) BroadcastYouTubeInfo(videoInfo YouTubeVideoInfo) {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	// Send only to mobile connections
+	for conn := range cm.mobileConnections {
+		if err := conn.WriteJSON(map[string]interface{}{
+			"type": "youtube_info",
+			"data": videoInfo,
+		}); err != nil {
+			fmt.Printf("Error broadcasting YouTube info to mobile connection: %v", err)
+		}
+	}
+
+	fmt.Printf("[DEBUG] ConnectionManager: Broadcasted YouTube info to %d mobile connections\n", len(cm.mobileConnections))
+}
+
 var connectionManager = NewConnectionManager()
+
+// Handle YouTube video info from PC
+func handleYouTubeInfo(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] YouTube info endpoint called - Method: %s\n", r.Method)
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var videoInfo YouTubeVideoInfo
+	err := json.NewDecoder(r.Body).Decode(&videoInfo)
+	if err != nil {
+		fmt.Printf("[DEBUG] YouTube info: Error decoding JSON: %v\n", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("[DEBUG] YouTube info: Received video info - Title: '%s', VideoID: '%s', CurrentTime: %d\n",
+		videoInfo.Title, videoInfo.VideoID, videoInfo.CurrentTime)
+
+	// Broadcast YouTube video info to mobile connections only
+	go connectionManager.BroadcastYouTubeInfo(videoInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	fmt.Printf("[DEBUG] YouTube info: Response sent successfully\n")
+}

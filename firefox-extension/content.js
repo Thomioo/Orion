@@ -4,7 +4,218 @@ if (window.orionContentScriptLoaded) {
 } else {
     window.orionContentScriptLoaded = true;
     console.log('Orion content script loaded');
+
+    // Check if current page is a YouTube video and start monitoring
+    checkYouTubeVideo();
 }
+
+// YouTube video detection and time tracking
+function checkYouTubeVideo() {
+    const currentUrl = window.location.href;
+    console.log('Current URL:', currentUrl);
+
+    // Check if URL is a YouTube video
+    if (isYouTubeVideoUrl(currentUrl)) {
+        console.log('YouTube video detected!');
+        startYouTubeTimeTracking();
+    } else {
+        console.log('Not a YouTube video URL');
+    }
+}
+
+function isYouTubeVideoUrl(url) {
+    // Match various YouTube video URL formats:
+    // https://www.youtube.com/watch?v=VIDEO_ID
+    // https://youtu.be/VIDEO_ID
+    // https://m.youtube.com/watch?v=VIDEO_ID
+    const youtubeVideoRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/;
+    return youtubeVideoRegex.test(url);
+}
+
+function startYouTubeTimeTracking() {
+    console.log('Starting YouTube time tracking...');
+
+    // Wait for video element to load
+    const checkForVideo = setInterval(() => {
+        const videoElement = document.querySelector('video');
+
+        if (videoElement) {
+            console.log('YouTube video element found');
+            clearInterval(checkForVideo);
+
+            // Log initial time
+            logVideoTime(videoElement);
+
+            // Set up periodic time logging (every 1 second for real-time updates)
+            const timeLogger = setInterval(() => {
+                if (document.querySelector('video') === videoElement && !videoElement.paused) {
+                    logVideoTime(videoElement);
+                }
+            }, 1000);
+
+            // Log time when video is paused/played
+            videoElement.addEventListener('pause', () => {
+                console.log('Video paused');
+                logVideoTime(videoElement);
+            });
+
+            videoElement.addEventListener('play', () => {
+                console.log('Video resumed');
+                logVideoTime(videoElement);
+            });
+
+            // Clean up interval if user navigates away
+            const originalPushState = history.pushState;
+            const originalReplaceState = history.replaceState;
+
+            history.pushState = function () {
+                originalPushState.apply(history, arguments);
+                setTimeout(() => {
+                    if (!isYouTubeVideoUrl(window.location.href)) {
+                        clearInterval(timeLogger);
+                    }
+                }, 100);
+            };
+
+            history.replaceState = function () {
+                originalReplaceState.apply(history, arguments);
+                setTimeout(() => {
+                    if (!isYouTubeVideoUrl(window.location.href)) {
+                        clearInterval(timeLogger);
+                    }
+                }, 100);
+            };
+
+            window.addEventListener('popstate', () => {
+                setTimeout(() => {
+                    if (!isYouTubeVideoUrl(window.location.href)) {
+                        clearInterval(timeLogger);
+                    }
+                }, 100);
+            });
+        }
+    }, 500); // Check every 500ms for video element
+
+    // Stop checking after 10 seconds if no video found
+    setTimeout(() => {
+        clearInterval(checkForVideo);
+    }, 10000);
+}
+
+function logVideoTime(videoElement) {
+    if (!videoElement) return;
+
+    const currentTime = videoElement.currentTime;
+    const duration = videoElement.duration;
+    const timeElapsed = formatTime(currentTime);
+    const totalDuration = formatTime(duration);
+    const percentComplete = duration > 0 ? ((currentTime / duration) * 100).toFixed(1) : 0;
+
+    // Create a properly formatted YouTube timestamp link
+    const timeInSeconds = Math.floor(currentTime);
+    const timestampLink = createYouTubeTimestampLink(window.location.href, timeInSeconds);
+
+    console.log(`YouTube Video Link: ${timestampLink}`);
+    console.log(`YouTube Video Time - Elapsed: ${timeElapsed} / ${totalDuration} (${percentComplete}%)`);
+
+    // Send YouTube video info to server for mobile notification
+    sendYouTubeVideoInfo(videoElement, timestampLink);
+}
+
+function sendYouTubeVideoInfo(videoElement, timestampLink) {
+    const videoId = extractYouTubeVideoId(window.location.href);
+    if (!videoId) return;
+
+    // Get video title from page
+    const videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer') ||
+        document.querySelector('h1.title') ||
+        document.querySelector('title');
+
+    const title = videoTitle ? videoTitle.textContent.trim() : 'YouTube Video';
+
+    const videoInfo = {
+        videoId: videoId,
+        title: title,
+        currentTime: Math.floor(videoElement.currentTime),
+        duration: Math.floor(videoElement.duration),
+        timestampLink: timestampLink,
+        isPlaying: !videoElement.paused,
+        url: window.location.href
+    };
+
+    console.log('Sending YouTube video info:', videoInfo);
+
+    // Send to background script to forward to server
+    browser.runtime.sendMessage({
+        type: 'youtube-video-info',
+        videoInfo: videoInfo
+    }).then(response => {
+        console.log('YouTube video info sent successfully:', response);
+    }).catch(err => {
+        console.error('Error sending YouTube video info:', err);
+    });
+}
+
+function createYouTubeTimestampLink(currentUrl, timeInSeconds) {
+    try {
+        // Extract video ID from various YouTube URL formats
+        const videoId = extractYouTubeVideoId(currentUrl);
+
+        if (videoId) {
+            return `https://youtu.be/${videoId}?t=${timeInSeconds}`;
+        } else {
+            console.error('Could not extract video ID from URL:', currentUrl);
+            return currentUrl;
+        }
+    } catch (error) {
+        console.error('Error creating timestamp link:', error);
+        return currentUrl;
+    }
+}
+
+function extractYouTubeVideoId(url) {
+    // Match various YouTube URL formats and extract the video ID:
+    // https://www.youtube.com/watch?v=VIDEO_ID
+    // https://youtu.be/VIDEO_ID
+    // https://m.youtube.com/watch?v=VIDEO_ID
+    // https://youtube.com/watch?v=VIDEO_ID
+    const patterns = [
+        // Standard youtube.com watch URLs (most common)
+        /[?&]v=([a-zA-Z0-9_-]{11})(?:[&#]|$)/,
+        // youtu.be short URLs
+        /youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/,
+        // Embed URLs
+        /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/,
+        // Direct video URLs
+        /youtube\.com\/v\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+            console.log(`Extracted video ID: ${match[1]} from URL: ${url}`);
+            return match[1];
+        }
+    }
+
+    console.error(`Could not extract video ID from URL: ${url}`);
+    return null;
+}
+
+function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return '0:00';
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+}
+
 // Listen for toggle-sidebar message from background.js
 browser.runtime.onMessage.addListener((msg) => {
     if (msg === 'toggle-sidebar') {
