@@ -221,91 +221,84 @@ function setupScrollPrevention() {
     }, { passive: false });
 }
 
+// WebSocket functionality for real-time updates
+let websocket = null;
+let reconnectInterval = null;
+
+function connectWebSocket() {
+    // Get server URL from background script
+    browser.runtime.sendMessage({ type: 'get-server-url' })
+        .then(response => {
+            if (response.success) {
+                const wsUrl = response.serverUrl.replace('http://', 'ws://') + '/pc/ws';
+                console.log('Connecting to WebSocket:', wsUrl);
+
+                try {
+                    websocket = new WebSocket(wsUrl);
+
+                    websocket.onopen = function (event) {
+                        console.log('WebSocket connected');
+                        if (reconnectInterval) {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
+                    };
+
+                    websocket.onmessage = function (event) {
+                        const message = JSON.parse(event.data);
+                        console.log('WebSocket message received:', message);
+
+                        if (message.type === 'initial' || message.type === 'update') {
+                            displayConversationData(message.data);
+                        }
+                    };
+
+                    websocket.onclose = function (event) {
+                        console.log('WebSocket disconnected, attempting to reconnect...');
+                        websocket = null;
+
+                        // Attempt to reconnect every 3 seconds
+                        if (!reconnectInterval) {
+                            reconnectInterval = setInterval(() => {
+                                connectWebSocket();
+                            }, 3000);
+                        }
+                    };
+
+                    websocket.onerror = function (error) {
+                        console.error('WebSocket error:', error);
+                        // Fallback to HTTP
+                        loadConversationHTTP();
+                    };
+                } catch (error) {
+                    console.error('Failed to create WebSocket connection:', error);
+                    // Fallback to HTTP
+                    loadConversationHTTP();
+                }
+            } else {
+                console.error('Failed to get server URL');
+                loadConversationHTTP();
+            }
+        })
+        .catch(err => {
+            console.error('Error getting server URL:', err);
+            loadConversationHTTP();
+        });
+}
+
 function loadConversation() {
+    // Try WebSocket first, fallback to HTTP
+    connectWebSocket();
+}
+
+function loadConversationHTTP() {
     browser.runtime.sendMessage({ type: 'fetch-conversation' })
         .then(response => {
             if (response.success) {
                 try {
                     const data = JSON.parse(response.data);
-                    console.log('Loaded flow data:', data);
-
-                    const conversationDiv = document.getElementById('conversation');
-                    if (!conversationDiv) {
-                        console.error('Conversation div not found');
-                        return;
-                    }
-
-                    // Clear existing content
-                    conversationDiv.innerHTML = '';
-
-                    // Process items if they exist
-                    if (data.items && data.items.length > 0) {
-                        data.items.forEach(item => {
-                            console.log(`Item from ${item.from}: ${item.content} (${item.type})`);
-
-                            // Create message element
-                            const messageDiv = document.createElement('div');
-                            messageDiv.style.cssText = `
-                                margin: 10px;
-                                padding: 8px 12px;
-                                border-radius: 12px;
-                                max-width: 70%;
-                                word-wrap: break-word;
-                                ${item.from === 'PC' ?
-                                    'background: #2B5A87; margin-left: auto; text-align: right;' :
-                                    'background: #333; margin-right: auto; text-align: left;'
-                                }   
-                            `;
-
-                            // Add content based on type
-                            if (item.type === 'text') {
-                                // Check if content contains URLs and make them clickable
-                                const urlRegex = /(https?:\/\/[^\s]+)/g;
-                                if (urlRegex.test(item.content)) {
-                                    // Content has URLs, replace with clickable links
-                                    const htmlContent = item.content.replace(urlRegex, '<a href="$1" target="_blank" style="color: #4A9EFF; text-decoration: underline;">$1</a>');
-                                    messageDiv.innerHTML = htmlContent;
-                                } else {
-                                    // No URLs, just set as text
-                                    messageDiv.textContent = item.content;
-                                }
-                            } else if (item.type === 'file') {
-                                // Parse filename and unique filename from content
-                                const parts = item.content.split('|');
-                                const displayName = parts[0];
-                                const uniqueFilename = parts[1] || parts[0]; // fallback for old format
-
-                                // Make file message clickable for download
-                                const fileSpan = document.createElement('span');
-                                fileSpan.style.cssText = 'color: #4A9EFF; text-decoration: underline; cursor: pointer;';
-                                fileSpan.textContent = displayName;
-                                fileSpan.addEventListener('click', function () {
-                                    downloadFile(uniqueFilename, displayName);
-                                });
-
-                                // messageDiv.innerHTML = '📎 ';
-                                messageDiv.appendChild(fileSpan);
-                            }
-
-                            // Add timestamp
-                            const timeDiv = document.createElement('div');
-                            timeDiv.style.cssText = `
-                                font-size: 0.7em;
-                                color: #aaa;
-                                margin-top: 4px;
-                            `;
-                            const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            timeDiv.textContent = `${item.from} • ${time}`;
-                            messageDiv.appendChild(timeDiv);
-
-                            conversationDiv.appendChild(messageDiv);
-                        });
-
-                        // Scroll to bottom
-                        conversationDiv.scrollTop = conversationDiv.scrollHeight;
-                    } else {
-                        conversationDiv.innerHTML = '<div style="color: #aaa; padding: 20px; text-align: center;">No messages yet</div>';
-                    }
+                    console.log('Loaded flow data via HTTP:', data);
+                    displayConversationData(data);
                 } catch (e) {
                     console.error('Error parsing flow data:', e);
                 }
@@ -316,6 +309,86 @@ function loadConversation() {
         .catch(err => {
             console.error('Error communicating with background script:', err);
         });
+}
+
+function displayConversationData(data) {
+    const conversationDiv = document.getElementById('conversation');
+    if (!conversationDiv) {
+        console.error('Conversation div not found');
+        return;
+    }
+
+    // Clear existing content
+    conversationDiv.innerHTML = '';
+
+    // Process items if they exist
+    if (data.items && data.items.length > 0) {
+        data.items.forEach(item => {
+            console.log(`Item from ${item.from}: ${item.content} (${item.type})`);
+
+            // Create message element
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                margin: 10px;
+                padding: 8px 12px;
+                border-radius: 12px;
+                max-width: 70%;
+                word-wrap: break-word;
+                ${item.from === 'PC' ?
+                    'background: #2B5A87; margin-left: auto; text-align: right;' :
+                    'background: #333; margin-right: auto; text-align: left;'
+                }   
+            `;
+
+            // Add content based on type
+            if (item.type === 'text') {
+                // Check if content contains URLs and make them clickable
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                if (urlRegex.test(item.content)) {
+                    // Content has URLs, replace with clickable links
+                    const htmlContent = item.content.replace(urlRegex, '<a href="$1" target="_blank" style="color: #4A9EFF; text-decoration: underline;">$1</a>');
+                    messageDiv.innerHTML = htmlContent;
+                } else {
+                    // No URLs, just set as text
+                    messageDiv.textContent = item.content;
+                }
+            } else if (item.type === 'file') {
+                // Parse filename and unique filename from content
+                const parts = item.content.split('|');
+                const displayName = parts[0];
+                const uniqueFilename = parts[1] || parts[0]; // fallback for old format
+
+                // Make file message clickable for download
+                const fileSpan = document.createElement('span');
+                fileSpan.style.cssText = 'color: #4A9EFF; text-decoration: underline; cursor: pointer;';
+                fileSpan.textContent = displayName;
+                fileSpan.addEventListener('click', function () {
+                    downloadFile(uniqueFilename, displayName);
+                });
+
+                // messageDiv.innerHTML = '📎 ';
+                messageDiv.appendChild(fileSpan);
+            }
+
+            // Add timestamp
+            const timeDiv = document.createElement('div');
+            timeDiv.style.cssText = `
+                font-size: 0.7em;
+                color: #aaa;
+                margin-top: 4px;
+            `;
+            const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            timeDiv.textContent = `${item.from} • ${time}`;
+            messageDiv.appendChild(timeDiv);
+
+            conversationDiv.appendChild(messageDiv);
+        });
+
+        // Scroll to bottom
+        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+    } else {
+        conversationDiv.innerHTML = '<div style="color: #aaa; padding: 20px; text-align: center;">No messages yet</div>';
+    }
 }
 
 function setupAttachIcon() {
@@ -401,8 +474,7 @@ function sendMessage() {
             if (response.success) {
                 console.log('Message sent successfully:', response);
                 inputField.value = ''; // Clear input field
-                // Reload conversation to show the new message
-                loadConversation();
+                // WebSocket will handle the update automatically
             } else {
                 console.error('Error sending message:', response.error);
             }
@@ -429,9 +501,10 @@ function sendFile(file) {
                 console.log('File sent successfully:', response);
                 // Clear file input
                 const fileInput = document.getElementById('fileInput');
-                if (fileInput) fileInput.value = '';
-                // Reload conversation to show the new file
-                loadConversation();
+                if (fileInput) {
+                    fileInput.value = '';
+                }
+                // WebSocket will handle the update automatically
             } else {
                 console.error('Error sending file:', response.error);
             }
@@ -441,11 +514,10 @@ function sendFile(file) {
         });
 }
 
-// Download file function
 function downloadFile(uniqueFilename, displayName) {
-    console.log('Downloading file:', displayName, 'with unique name:', uniqueFilename);
+    console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
 
-    // Get server URL from background script and download file
+    // Use background script's download handler to avoid HTTP warnings
     browser.runtime.sendMessage({
         type: 'download-file',
         uniqueFilename: uniqueFilename,
@@ -453,12 +525,12 @@ function downloadFile(uniqueFilename, displayName) {
     })
         .then(response => {
             if (response.success) {
-                console.log('Download initiated successfully for:', displayName);
+                console.log('File download started successfully, ID:', response.downloadId);
             } else {
-                console.error('Error downloading file:', response.error);
+                console.error('Failed to start download:', response.error);
             }
         })
         .catch(err => {
-            console.error('Error communicating with background script:', err);
+            console.error('Error communicating with background script for download:', err);
         });
 }

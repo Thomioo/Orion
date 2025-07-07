@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func main() {
@@ -28,6 +32,16 @@ func main() {
 
 	// Serve uploaded files
 	http.HandleFunc("/uploads/", corsMiddleware(handleFileDownload))
+
+	// Mobile web interface
+	http.HandleFunc("/mobile/", corsMiddleware(handleMobileWeb))
+
+	// Serve mobile static files (images, etc.)
+	http.HandleFunc("/imgs/", corsMiddleware(handleMobileAssets))
+
+	// WebSocket endpoints
+	http.HandleFunc("/pc/ws", corsMiddleware(handlePCWebSocket))
+	http.HandleFunc("/mobile/ws", corsMiddleware(handleMobileWebSocket))
 
 	// PC endpoints
 	http.HandleFunc("/pc/items", corsMiddleware(handlePCItems))
@@ -232,6 +246,9 @@ func handleMessage(w http.ResponseWriter, r *http.Request, from string) {
 
 	fmt.Printf("[DEBUG] Message: Data saved successfully\n")
 
+	// Broadcast update to all WebSocket connections
+	go connectionManager.BroadcastUpdate()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": item.ID})
 	fmt.Printf("[DEBUG] Message: Response sent successfully\n")
@@ -316,6 +333,9 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 
 	fmt.Printf("[DEBUG] File: Data saved successfully\n")
 
+	// Broadcast update to all WebSocket connections
+	go connectionManager.BroadcastUpdate()
+
 	// Generate file URL using the unique filename
 	fileURL := fmt.Sprintf("http://%s:8000/uploads/%s", getLocalIP(), uniqueFilename)
 	fmt.Printf("[DEBUG] File: Generated download URL: %s\n", fileURL)
@@ -378,3 +398,196 @@ func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 	fmt.Printf("[DEBUG] File download: File served successfully\n")
 }
+
+// Handle mobile web interface
+func handleMobileWeb(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Mobile web interface requested - URL: %s\n", r.URL.Path)
+
+	if r.Method != "GET" {
+		fmt.Printf("[ERROR] Mobile web: Method not allowed: %s\n", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Serve the mobile HTML file
+	http.ServeFile(w, r, "mobile/index.html")
+}
+
+// Handle mobile static assets (images, etc.)
+func handleMobileAssets(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Mobile asset requested - URL: %s\n", r.URL.Path)
+
+	if r.Method != "GET" {
+		fmt.Printf("[ERROR] Mobile asset: Method not allowed: %s\n", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract asset path from URL (remove "/imgs/" prefix)
+	assetPath := r.URL.Path[6:] // Remove "/imgs/"
+	if assetPath == "" {
+		fmt.Printf("[ERROR] Mobile asset: No asset path provided\n")
+		http.Error(w, "No asset path provided", http.StatusBadRequest)
+		return
+	}
+
+	// Construct full file path
+	filePath := filepath.Join("mobile", "imgs", assetPath)
+	fmt.Printf("[DEBUG] Mobile asset: Looking for file at %s\n", filePath)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fmt.Printf("[ERROR] Mobile asset: File not found: %s\n", filePath)
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	// Set appropriate content type based on file extension
+	ext := filepath.Ext(assetPath)
+	switch ext {
+	case ".png":
+		w.Header().Set("Content-Type", "image/png")
+	case ".jpg", ".jpeg":
+		w.Header().Set("Content-Type", "image/jpeg")
+	case ".gif":
+		w.Header().Set("Content-Type", "image/gif")
+	case ".svg":
+		w.Header().Set("Content-Type", "image/svg+xml")
+	default:
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+
+	// Serve the file
+	fmt.Printf("[DEBUG] Mobile asset: Serving file %s\n", assetPath)
+	http.ServeFile(w, r, filePath)
+	fmt.Printf("[DEBUG] Mobile asset: File served successfully\n")
+}
+
+// Handle PC WebSocket connections
+func handlePCWebSocket(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] PC WebSocket connection requested\n")
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to upgrade PC WebSocket connection: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	// Add connection to manager
+	connectionManager.AddConnection(conn)
+	defer connectionManager.RemoveConnection(conn)
+
+	fmt.Printf("[DEBUG] PC WebSocket connection established\n")
+
+	// Send initial data
+	data := loadData()
+	err = conn.WriteJSON(map[string]interface{}{
+		"type": "initial",
+		"data": data,
+	})
+	if err != nil {
+		log.Printf("Error sending initial data to PC WebSocket: %v", err)
+		return
+	}
+
+	// Keep connection alive and handle incoming messages
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("PC WebSocket connection closed: %v", err)
+			break
+		}
+	}
+}
+
+// Handle mobile WebSocket connections
+func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Mobile WebSocket connection requested\n")
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to upgrade mobile WebSocket connection: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	// Add connection to manager
+	connectionManager.AddConnection(conn)
+	defer connectionManager.RemoveConnection(conn)
+
+	fmt.Printf("[DEBUG] Mobile WebSocket connection established\n")
+
+	// Send initial data
+	data := loadData()
+	err = conn.WriteJSON(map[string]interface{}{
+		"type": "initial",
+		"data": data,
+	})
+	if err != nil {
+		log.Printf("Error sending initial data to mobile WebSocket: %v", err)
+		return
+	}
+
+	// Keep connection alive and handle incoming messages
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("Mobile WebSocket connection closed: %v", err)
+			break
+		}
+	}
+}
+
+// WebSocket upgrader
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins for simplicity
+	},
+}
+
+// WebSocket connection management
+type ConnectionManager struct {
+	connections map[*websocket.Conn]bool
+	mutex       sync.RWMutex
+}
+
+func NewConnectionManager() *ConnectionManager {
+	return &ConnectionManager{
+		connections: make(map[*websocket.Conn]bool),
+	}
+}
+
+func (cm *ConnectionManager) AddConnection(conn *websocket.Conn) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	cm.connections[conn] = true
+}
+
+func (cm *ConnectionManager) RemoveConnection(conn *websocket.Conn) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+	delete(cm.connections, conn)
+}
+
+func (cm *ConnectionManager) BroadcastUpdate() {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	// Load latest data
+	data := loadData()
+
+	for conn := range cm.connections {
+		err := conn.WriteJSON(map[string]interface{}{
+			"type": "update",
+			"data": data,
+		})
+		if err != nil {
+			fmt.Printf("Error broadcasting to connection: %v", err)
+			delete(cm.connections, conn)
+			conn.Close()
+		}
+	}
+}
+
+var connectionManager = NewConnectionManager()
