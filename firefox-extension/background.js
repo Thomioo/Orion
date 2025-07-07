@@ -3,7 +3,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Background script: Received message:', request.type);
 
     if (request.type === 'fetch-conversation') {
-        console.log('Background script: Attempting to fetch from 192.168.2.101:8000/conversation');
+        console.log('Background script: Attempting to fetch from 192.168.2.101:8000/pc/items');
 
         // Test if fetch API is available
         if (typeof fetch === 'undefined') {
@@ -12,7 +12,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        fetch('http://192.168.2.101:8000/conversation', {
+        fetch('http://192.168.2.101:8000/pc/items', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.type === 'send-message') {
         console.log('Background script: Sending message');
-        fetch('http://192.168.2.101:8000/message', {
+        fetch('http://192.168.2.101:8000/pc/message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.type === 'send-file') {
         console.log('Background script: Sending file');
-        fetch('http://192.168.2.101:8000/file', {
+        fetch('http://192.168.2.101:8000/pc/file', {
             method: 'POST',
             body: request.formData,
             mode: 'cors',

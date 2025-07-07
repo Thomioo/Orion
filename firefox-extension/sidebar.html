@@ -14,18 +14,106 @@
             color: #fff;
             font-family: sans-serif;
             border-radius: 1em;
+            display: flex;
+            flex-direction: column;
         }
 
         .hello {
             padding: 20px;
             font-size: 2em;
         }
+
+        #conversation {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            margin: 0 10px;
+        }
+
+        .inputDiv {
+            margin-top: auto;
+            padding-bottom: 20px;
+        }
+
+        .input-container {
+            position: relative;
+            width: 95%;
+            margin: 0 auto;
+        }
+
+        #inputField {
+            width: 100%;
+            padding: 12px 50px 12px 15px;
+            font-size: 1em;
+            border-radius: 1em;
+            border: 2px solid #444;
+            background: #333;
+            color: #fff;
+            outline: none;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        #inputField:focus {
+            border-color: #666;
+        }
+
+        #inputField::placeholder {
+            color: #aaa;
+        }
+
+        #attachFileButton {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+            padding: 0;
+        }
+
+        #attachFileButton img {
+            height: 24px;
+            width: 24px;
+            display: block;
+        }
+
+        /* Fallback styling for when image fails and shows alt text */
+        #attachFileButton {
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        #attachFileButton:hover {
+            opacity: 0.7;
+        }
+
+        #attachFileButton:active {
+            opacity: 0.5;
+        }
     </style>
 </head>
 
 <body>
-    <div class="hello">Conversation</div>
-    <script src="sidebar.js"></script>
+    <div class="hello">Orion</div>
+    <div id="conversation"></div>
+    <div class="inputDiv">
+        <div class="input-container">
+            <input type="text" id="inputField" placeholder="Type here...">
+            <input type="file" id="fileInput" style="display: none;">
+            <button id="attachFileButton" title="Attach File">
+                <img id="attachIcon" alt="📎">
+            </button>
+        </div>
+    </div>
 </body>
 
 </html>

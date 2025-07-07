@@ -20,7 +20,8 @@
     ],
     "web_accessible_resources": [
         "sidebar.html",
-        "sidebar.js"
+        "sidebar.js",
+        "imgs/*"
     ],
     "content_scripts": [
         {
