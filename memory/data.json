@@ -1,0 +1,116 @@
+{
+    "items": [
+        {
+            "id": "item_1751893352631974000",
+            "timestamp": "2025-07-07T15:02:32.631974+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "ahoj ahc"
+        },
+        {
+            "id": "item_1751893356659361400",
+            "timestamp": "2025-07-07T15:02:36.6593865+02:00",
+            "from": "PC",
+            "type": "file",
+            "content": "baguette.png|item_1751893356653548200_baguette.png"
+        },
+        {
+            "id": "item_1751893388895470500",
+            "timestamp": "2025-07-07T15:03:08.8954705+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "say something"
+        },
+        {
+            "id": "item_1751893391603839500",
+            "timestamp": "2025-07-07T15:03:11.6038395+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "that shjit carazy"
+        },
+        {
+            "id": "item_1751893398965508300",
+            "timestamp": "2025-07-07T15:03:18.9655083+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "ill do it dont you make me"
+        },
+        {
+            "id": "item_1751893404127726400",
+            "timestamp": "2025-07-07T15:03:24.1277264+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "ill leave some pictures maybe"
+        },
+        {
+            "id": "item_1751893597591604000",
+            "timestamp": "2025-07-07T15:06:37.591604+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "mawiodmao'inmwc"
+        },
+        {
+            "id": "item_1751893598261985700",
+            "timestamp": "2025-07-07T15:06:38.2619857+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "aw;ocinaw'oic"
+        },
+        {
+            "id": "item_1751893599867054300",
+            "timestamp": "2025-07-07T15:06:39.8670543+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "awc'oiaw\\"
+        },
+        {
+            "id": "item_1751893600100252300",
+            "timestamp": "2025-07-07T15:06:40.1002523+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893600394088300",
+            "timestamp": "2025-07-07T15:06:40.3940883+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893600559721700",
+            "timestamp": "2025-07-07T15:06:40.5597217+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893600745485100",
+            "timestamp": "2025-07-07T15:06:40.7454851+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893600999574600",
+            "timestamp": "2025-07-07T15:06:40.9995746+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893601199584000",
+            "timestamp": "2025-07-07T15:06:41.199584+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        },
+        {
+            "id": "item_1751893601294200000",
+            "timestamp": "2025-07-07T15:06:41.2942+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "l"
+        }
+    ]
+}

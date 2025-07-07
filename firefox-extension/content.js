@@ -21,19 +21,119 @@ browser.runtime.onMessage.addListener((msg) => {
                     sidebar.innerHTML = bodyContent;
                     const styleTag = doc.querySelector('style');
                     if (styleTag) {
-                        const scopedStyle = styleTag.textContent.replace(/body/g, '#sleek-sidebar');
+                        // More comprehensive CSS scoping to prevent conflicts
+                        let scopedStyle = styleTag.textContent;
+
+                        // Replace all selectors to be scoped to #sleek-sidebar
+                        scopedStyle = scopedStyle
+                            .replace(/\bbody\b/g, '#sleek-sidebar')
+                            .replace(/\.hello\b/g, '#sleek-sidebar .hello')
+                            .replace(/#conversation\b/g, '#sleek-sidebar #conversation')
+                            .replace(/\.inputDiv\b/g, '#sleek-sidebar .inputDiv')
+                            .replace(/\.input-container\b/g, '#sleek-sidebar .input-container')
+                            .replace(/#inputField\b/g, '#sleek-sidebar #inputField')
+                            .replace(/#inputField:focus\b/g, '#sleek-sidebar #inputField:focus')
+                            .replace(/#inputField::placeholder\b/g, '#sleek-sidebar #inputField::placeholder')
+                            .replace(/#attachFileButton\b/g, '#sleek-sidebar #attachFileButton')
+                            .replace(/#attachFileButton img\b/g, '#sleek-sidebar #attachFileButton img')
+                            .replace(/#attachFileButton:hover\b/g, '#sleek-sidebar #attachFileButton:hover')
+                            .replace(/#attachFileButton:active\b/g, '#sleek-sidebar #attachFileButton:active');
+
+                        // Add !important to all CSS properties to override host styles
+                        scopedStyle = scopedStyle.replace(/;/g, ' !important;');
+
                         const style = document.createElement('style');
                         style.textContent = `
                             #sleek-sidebar {
-                                position: fixed;
-                                top: 1vh;
-                                right: -26vw;
-                                z-index: 999999;
-                                transition: right 0.3s cubic-bezier(.4,0,.2,1);
-                                box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+                                position: fixed !important;
+                                top: 1vh !important;
+                                right: -26vw !important;
+                                z-index: 2147483647 !important;
+                                transition: right 0.3s cubic-bezier(.4,0,.2,1) !important;
+                                box-shadow: -2px 0 8px rgba(0,0,0,0.2) !important;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                                isolation: isolate !important;
+                                /* Reset inherited styles without breaking our layout */
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                border: none !important;
+                                background: none !important;
+                                text-decoration: none !important;
+                                text-transform: none !important;
+                                letter-spacing: normal !important;
+                                word-spacing: normal !important;
+                                line-height: normal !important;
+                                text-shadow: none !important;
+                                box-shadow: -2px 0 8px rgba(0,0,0,0.2) !important;
                             }
                             #sleek-sidebar.open {
-                                right: 1vh;
+                                right: 1vh !important;
+                            }
+                            #sleek-sidebar * {
+                                box-sizing: border-box !important;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                                font-size: inherit !important;
+                                line-height: normal !important;
+                                font-weight: normal !important;
+                                font-style: normal !important;
+                                text-transform: none !important;
+                                letter-spacing: normal !important;
+                                word-spacing: normal !important;
+                            }
+                            /* Force paperclip image to correct size with maximum specificity */
+                            #sleek-sidebar #attachFileButton img,
+                            #sleek-sidebar #attachFileButton img[src],
+                            #sleek-sidebar div #attachFileButton img,
+                            #sleek-sidebar .input-container #attachFileButton img {
+                                height: 24px !important;
+                                width: 24px !important;
+                                max-height: 24px !important;
+                                max-width: 24px !important;
+                                min-height: 24px !important;
+                                min-width: 24px !important;
+                                object-fit: contain !important;
+                                display: block !important;
+                                border: none !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                transform: none !important;
+                                scale: 1 !important;
+                                zoom: 1 !important;
+                                flex: none !important;
+                                position: static !important;
+                            }
+                            /* Consistent font sizing for all sidebar elements */
+                            #sleek-sidebar {
+                                font-size: 14px !important;
+                            }
+                            #sleek-sidebar .hello {
+                                font-size: 2em !important;
+                            }
+                            #sleek-sidebar #inputField {
+                                font-size: 1em !important;
+                            }
+                            #sleek-sidebar #conversation {
+                                font-size: 1em !important;
+                            }
+                            #sleek-sidebar #conversation * {
+                                font-size: inherit !important;
+                            }
+                            /* Prevent scroll propagation to background page */
+                            #sleek-sidebar {
+                                overflow: hidden !important;
+                            }
+                            #sleek-sidebar #conversation {
+                                overflow-y: auto !important;
+                                overscroll-behavior: contain !important;
+                                /* Hide scrollbar */
+                                scrollbar-width: none !important; /* Firefox */
+                                -ms-overflow-style: none !important; /* IE and Edge */
+                            }
+                            /* Hide scrollbar for WebKit browsers (Chrome, Safari, etc.) */
+                            #sleek-sidebar #conversation::-webkit-scrollbar {
+                                display: none !important;
+                                width: 0 !important;
+                                height: 0 !important;
                             }
                             ${scopedStyle}
                         `;
@@ -43,6 +143,9 @@ browser.runtime.onMessage.addListener((msg) => {
 
                     // Set up sidebar functionality directly here
                     setupSidebarFunctionality();
+
+                    // Prevent scroll propagation when hovering over sidebar
+                    setupScrollPrevention();
 
                     // Slide in
                     setTimeout(() => sidebar.classList.add('open'), 10);
@@ -73,6 +176,49 @@ function setupSidebarFunctionality() {
 
     // Set up attach button functionality
     setupAttachButton();
+}
+
+function setupScrollPrevention() {
+    const sidebar = document.getElementById('sleek-sidebar');
+    const conversation = document.getElementById('conversation');
+
+    if (!sidebar || !conversation) {
+        console.error('Sidebar or conversation element not found for scroll prevention');
+        return;
+    }
+
+    // Prevent wheel events from propagating to the background page when over sidebar
+    sidebar.addEventListener('wheel', function (e) {
+        e.stopPropagation();
+
+        // If the wheel event is over the conversation area, handle it there
+        const conversationRect = conversation.getBoundingClientRect();
+        const isOverConversation = e.clientX >= conversationRect.left &&
+            e.clientX <= conversationRect.right &&
+            e.clientY >= conversationRect.top &&
+            e.clientY <= conversationRect.bottom;
+
+        if (isOverConversation) {
+            // Let the conversation handle its own scrolling
+            const scrollTop = conversation.scrollTop;
+            const scrollHeight = conversation.scrollHeight;
+            const clientHeight = conversation.clientHeight;
+
+            // Prevent default if we're at scroll boundaries to avoid page scroll
+            if ((e.deltaY > 0 && scrollTop + clientHeight >= scrollHeight) ||
+                (e.deltaY < 0 && scrollTop <= 0)) {
+                e.preventDefault();
+            }
+        } else {
+            // Over other parts of sidebar, prevent scrolling entirely
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    // Also prevent touch scroll propagation on mobile
+    sidebar.addEventListener('touchmove', function (e) {
+        e.stopPropagation();
+    }, { passive: false });
 }
 
 function loadConversation() {
@@ -137,7 +283,7 @@ function loadConversation() {
                                     downloadFile(uniqueFilename, displayName);
                                 });
 
-                                messageDiv.innerHTML = '📎 ';
+                                // messageDiv.innerHTML = '📎 ';
                                 messageDiv.appendChild(fileSpan);
                             }
 
