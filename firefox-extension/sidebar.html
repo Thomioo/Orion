@@ -26,6 +26,16 @@
             border: none;
             background: transparent;
             color: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .hello img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
         }
 
         #conversation {
@@ -128,7 +138,10 @@
 </head>
 
 <body>
-    <div class="hello">Orion</div>
+    <div class="hello">
+        <img id="orionIcon" alt="">
+        Orion
+    </div>
     <div id="conversation"></div>
     <div class="inputDiv">
         <div class="input-container">

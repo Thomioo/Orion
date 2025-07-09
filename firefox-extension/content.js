@@ -423,8 +423,8 @@ function setupSidebarFunctionality() {
     // Load conversation data
     loadConversation();
 
-    // Set up attach button icon
-    setupAttachIcon();
+    // Set up icons
+    setupIcons();
 
     // Set up attach button functionality
     setupAttachButton();
@@ -659,22 +659,41 @@ function displayConversationData(data) {
     }
 }
 
-function setupAttachIcon() {
+function setupIcons() {
     // Check if browser.runtime is available
     if (typeof browser !== 'undefined' && browser.runtime) {
+        // Set up header icon
+        const orionIcon = document.getElementById('orionIcon');
+        if (orionIcon) {
+            const headerIconUrl = browser.runtime.getURL('imgs/icon_shiny.png');
+            console.log('Setting header icon URL:', headerIconUrl);
+            orionIcon.src = headerIconUrl;
+
+            orionIcon.onerror = function () {
+                console.log('Header icon failed to load');
+            };
+
+            orionIcon.onload = function () {
+                console.log('Header icon loaded successfully');
+            };
+        } else {
+            console.error('orionIcon element not found');
+        }
+
+        // Set up attachment icon
         const attachIcon = document.getElementById('attachIcon');
         if (attachIcon) {
             const iconUrl = browser.runtime.getURL('imgs/attachment.png');
-            console.log('Setting icon URL:', iconUrl);
+            console.log('Setting attachment icon URL:', iconUrl);
             attachIcon.src = iconUrl;
 
             // Add error handling for image load
             attachIcon.onerror = function () {
-                console.log('Image failed to load, falling back to emoji');
+                console.log('Attachment image failed to load, falling back to emoji');
             };
 
             attachIcon.onload = function () {
-                console.log('Image loaded successfully');
+                console.log('Attachment image loaded successfully');
             };
         } else {
             console.error('attachIcon element not found');

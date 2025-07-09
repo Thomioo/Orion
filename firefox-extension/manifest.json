@@ -9,7 +9,19 @@
         ]
     },
     "browser_action": {
-        "default_title": "Orion"
+        "default_title": "Orion",
+        "default_icon": {
+            "16": "imgs/icon.png",
+            "32": "imgs/icon.png",
+            "48": "imgs/icon.png",
+            "128": "imgs/icon.png"
+        }
+    },
+    "icons": {
+        "16": "imgs/icon.png",
+        "32": "imgs/icon.png",
+        "48": "imgs/icon.png",
+        "128": "imgs/icon.png"
     },
     "options_ui": {
         "page": "settings.html",
