@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -26,6 +27,9 @@ var (
 //go:embed icon.ico
 var iconData []byte
 
+//go:embed server-settings.html
+var settingsHTML []byte
+
 func findAvailablePort(startPort string) string {
 	port := startPort
 	for i := 0; i < 10; i++ { // Try up to 10 different ports
@@ -39,12 +43,29 @@ func findAvailablePort(startPort string) string {
 }
 
 func startServer() {
+	// Load settings
+	serverSettings = loadSettings()
+
+	// Use port from settings
+	serverPort = serverSettings.ServerPort
+
 	// Find an available port
 	availablePort := findAvailablePort(serverPort)
 	if availablePort != serverPort {
 		fmt.Printf("[INFO] Port %s is busy, using port %s instead\n", serverPort, availablePort)
 		serverPort = availablePort
+		// Update settings with actual port
+		serverSettings.ServerPort = availablePort
 	}
+
+	// Determine server host (use setting or auto-detect)
+	var serverHost string
+	if serverSettings.ServerHost != "" {
+		serverHost = serverSettings.ServerHost
+	} else {
+		serverHost = getLocalIP()
+	}
+
 	// Ensure uploads directory exists
 	if err := ensureUploadsDir(); err != nil {
 		fmt.Printf("[ERROR] Failed to create uploads directory: %v\n", err)
@@ -90,11 +111,18 @@ func startServer() {
 		handleFile(w, r, "phone")
 	}))
 
-	fmt.Printf("[INFO] Server starting on http://%s:%s\n", getLocalIP(), serverPort)
+	// Server settings endpoints
+	http.HandleFunc("/settings", corsMiddleware(handleServerSettings))
+	http.HandleFunc("/settings/", corsMiddleware(handleServerSettingsPage))
+	http.HandleFunc("/status", corsMiddleware(handleServerStatus))
+	http.HandleFunc("/clear-history", corsMiddleware(handleClearHistory))
+	http.HandleFunc("/favicon.ico", corsMiddleware(handleFavicon))
+
+	fmt.Printf("[INFO] Server starting on http://%s:%s\n", serverHost, serverPort)
 
 	// Start the server
-	if err := http.ListenAndServe(getLocalIP()+":"+serverPort, nil); err != nil {
-		fmt.Printf("[ERROR] Server failed to start on port %s: %v\n", serverPort, err)
+	if err := http.ListenAndServe(serverHost+":"+serverPort, nil); err != nil {
+		fmt.Printf("[ERROR] Server failed to start on %s:%s: %v\n", serverHost, serverPort, err)
 		fmt.Printf("[INFO] Try closing other applications using port %s and restart\n", serverPort)
 	}
 }
@@ -114,10 +142,18 @@ func getLocalIP() string {
 	return ""
 }
 
+// Get current server host (from settings or auto-detect)
+func getCurrentServerHost() string {
+	if serverSettings.ServerHost != "" {
+		return serverSettings.ServerHost
+	}
+	return getLocalIP()
+}
+
 // CORS middleware function
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers for all requests
+		// Set CORS headers for all requests (always enabled)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
@@ -154,6 +190,21 @@ type YouTubeVideoInfo struct {
 	URL           string `json:"url"`
 }
 
+// Server settings structure
+type ServerSettings struct {
+	ServerHost    string `json:"serverHost"`
+	ServerPort    string `json:"serverPort"`
+	DataRetention int    `json:"dataRetention"`
+}
+
+// Server status structure
+type ServerStatus struct {
+	IsOnline    bool   `json:"isOnline"`
+	Uptime      string `json:"uptime"`
+	Version     string `json:"version"`
+	Connections int    `json:"connections"`
+}
+
 // Flow data structure
 type FlowData struct {
 	Items []Item `json:"items"`
@@ -161,6 +212,60 @@ type FlowData struct {
 
 const dataFile = "memory/data.json"
 const uploadsDir = "memory/uploads"
+const settingsFile = "memory/settings.json"
+
+var (
+	serverSettings  = getDefaultSettings()
+	serverStartTime = time.Now()
+)
+
+// Get default server settings
+func getDefaultSettings() ServerSettings {
+	return ServerSettings{
+		ServerHost:    "",
+		ServerPort:    "8000",
+		DataRetention: 30,
+	}
+}
+
+// Load server settings from file
+func loadSettings() ServerSettings {
+	var settings ServerSettings
+
+	if _, err := os.Stat(settingsFile); os.IsNotExist(err) {
+		fmt.Printf("[DEBUG] Settings file doesn't exist, using defaults\n")
+		return getDefaultSettings()
+	}
+
+	fmt.Printf("[DEBUG] Loading settings from file: %s\n", settingsFile)
+	fileData, err := os.ReadFile(settingsFile)
+	if err != nil {
+		fmt.Printf("[ERROR] Error reading settings file: %v\n", err)
+		return getDefaultSettings()
+	}
+
+	err = json.Unmarshal(fileData, &settings)
+	if err != nil {
+		fmt.Printf("[ERROR] Error parsing settings JSON: %v\n", err)
+		return getDefaultSettings()
+	}
+
+	fmt.Printf("[DEBUG] Settings loaded successfully\n")
+	return settings
+}
+
+// Save server settings to file
+func saveSettings(settings ServerSettings) error {
+	// Ensure memory directory exists
+	os.MkdirAll("memory", 0755)
+
+	jsonData, err := json.MarshalIndent(settings, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(settingsFile, jsonData, 0644)
+}
 
 // Load data from file
 func loadData() FlowData {
@@ -382,7 +487,7 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 	go connectionManager.BroadcastUpdate()
 
 	// Generate file URL using the unique filename
-	fileURL := fmt.Sprintf("http://%s:%s/uploads/%s", getLocalIP(), serverPort, uniqueFilename)
+	fileURL := fmt.Sprintf("http://%s:%s/uploads/%s", getCurrentServerHost(), serverPort, uniqueFilename)
 	fmt.Printf("[DEBUG] File: Generated download URL: %s\n", fileURL)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -693,12 +798,21 @@ func onReady() {
 	systray.SetTitle("Orion")
 	systray.SetTooltip("Orion is running")
 
+	mSettings := systray.AddMenuItem("Settings", "Open server settings")
 	mQuit := systray.AddMenuItem("Quit", "Exit the app")
 
 	go func() {
-		<-mQuit.ClickedCh
-		systray.Quit()
-		os.Exit(0)
+		for {
+			select {
+			case <-mSettings.ClickedCh:
+				// Open settings page in default browser
+				url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
+				openURL(url)
+			case <-mQuit.ClickedCh:
+				systray.Quit()
+				os.Exit(0)
+			}
+		}
 	}()
 
 	go startServer()
@@ -706,6 +820,31 @@ func onReady() {
 
 func onExit() {
 	// Optional: cleanup code
+}
+
+// openURL opens the specified URL in the default browser
+func openURL(url string) {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "cmd"
+		args = []string{"/c", "start", url}
+	case "darwin":
+		cmd = "open"
+		args = []string{url}
+	default: // "linux", "freebsd", "openbsd", "netbsd"
+		cmd = "xdg-open"
+		args = []string{url}
+	}
+
+	err := exec.Command(cmd, args...).Start()
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to open URL %s: %v\n", url, err)
+	} else {
+		fmt.Printf("[INFO] Opened settings page: %s\n", url)
+	}
 }
 
 // Handle YouTube video info from PC
@@ -734,4 +873,141 @@ func handleYouTubeInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 	fmt.Printf("[DEBUG] YouTube info: Response sent successfully\n")
+}
+
+// Handle server settings API endpoint
+func handleServerSettings(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Server settings endpoint called - Method: %s\n", r.Method)
+
+	switch r.Method {
+	case "GET":
+		// Return current settings
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(serverSettings)
+		fmt.Printf("[DEBUG] Server settings: Current settings sent\n")
+
+	case "POST":
+		// Update settings
+		var newSettings ServerSettings
+		err := json.NewDecoder(r.Body).Decode(&newSettings)
+		if err != nil {
+			fmt.Printf("[ERROR] Server settings: Invalid JSON: %v\n", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Validate settings
+		if newSettings.ServerPort == "" || newSettings.DataRetention < 1 {
+			http.Error(w, "Invalid settings values", http.StatusBadRequest)
+			return
+		}
+
+		// Update global settings
+		serverSettings = newSettings
+
+		// Save to file
+		if err := saveSettings(serverSettings); err != nil {
+			fmt.Printf("[ERROR] Server settings: Error saving settings: %v\n", err)
+			http.Error(w, "Error saving settings", http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Printf("[DEBUG] Server settings: Settings updated successfully\n")
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Settings updated successfully"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// Handle server status API endpoint
+func handleServerStatus(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Server status endpoint called - Method: %s\n", r.Method)
+
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Calculate uptime
+	uptime := time.Since(serverStartTime)
+	uptimeStr := fmt.Sprintf("%dh %dm", int(uptime.Hours()), int(uptime.Minutes())%60)
+
+	// Get connection count
+	connectionManager.mutex.RLock()
+	totalConnections := len(connectionManager.pcConnections) + len(connectionManager.mobileConnections)
+	connectionManager.mutex.RUnlock()
+
+	status := ServerStatus{
+		IsOnline:    true,
+		Uptime:      uptimeStr,
+		Version:     "1.0.0",
+		Connections: totalConnections,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+	fmt.Printf("[DEBUG] Server status: Status sent successfully\n")
+}
+
+// Handle server settings page
+func handleServerSettingsPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Server settings page requested - URL: %s\n", r.URL.Path)
+
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Serve the embedded settings HTML
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(settingsHTML)
+}
+
+// Handle clear history endpoint
+func handleClearHistory(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Clear history endpoint called - Method: %s\n", r.Method)
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Clear all items from data
+	emptyData := FlowData{Items: []Item{}}
+
+	if err := saveFlowData(emptyData); err != nil {
+		fmt.Printf("[ERROR] Clear history: Error saving empty data: %v\n", err)
+		http.Error(w, "Error clearing history", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("[DEBUG] Clear history: History cleared successfully\n")
+
+	// Broadcast update to all WebSocket connections
+	go connectionManager.BroadcastUpdate()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "History cleared successfully"})
+	fmt.Printf("[DEBUG] Clear history: Response sent successfully\n")
+}
+
+// Handle favicon endpoint
+func handleFavicon(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[DEBUG] Favicon requested - Method: %s\n", r.Method)
+
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Serve the embedded icon
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
+	w.WriteHeader(http.StatusOK)
+	w.Write(iconData)
+	fmt.Printf("[DEBUG] Favicon served successfully\n")
 }

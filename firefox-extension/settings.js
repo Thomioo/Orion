@@ -10,7 +10,7 @@ if (!extApi) {
 const DEFAULT_SETTINGS = {
     serverHost: '192.168.2.101',
     serverPort: 8000,
-    resizableSidebar: false
+    resizableSidebar: true
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,16 +27,40 @@ document.addEventListener('DOMContentLoaded', () => {
         resizableSidebar.checked = !!s.resizableSidebar;
     });
 
+    // Show status message with animation
+    function showStatus(message, type = 'success') {
+        status.textContent = message;
+        status.className = `status ${type} show`;
+        setTimeout(() => {
+            status.classList.remove('show');
+        }, 3000);
+    }
+
     document.getElementById('settingsForm').addEventListener('submit', (e) => {
         e.preventDefault();
+
+        // Validate inputs
+        const hostValue = serverHost.value.trim();
+        const portValue = parseInt(serverPort.value);
+
+        if (!hostValue) {
+            showStatus('Please enter a valid server host', 'error');
+            return;
+        }
+
+        if (!portValue || portValue < 1 || portValue > 65535) {
+            showStatus('Please enter a valid port (1-65535)', 'error');
+            return;
+        }
+
         const newSettings = {
-            serverHost: serverHost.value.trim() || DEFAULT_SETTINGS.serverHost,
-            serverPort: parseInt(serverPort.value) || DEFAULT_SETTINGS.serverPort,
+            serverHost: hostValue,
+            serverPort: portValue,
             resizableSidebar: resizableSidebar.checked
         };
+
         extApi.storage.local.set({ orionSettings: newSettings }, () => {
-            status.textContent = 'Settings saved!';
-            setTimeout(() => status.textContent = '', 2000);
+            showStatus('Settings saved successfully!', 'success');
         });
     });
 

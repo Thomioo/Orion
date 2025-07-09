@@ -11,13 +11,15 @@
     "browser_action": {
         "default_title": "Orion"
     },
+    "options_ui": {
+        "page": "settings.html",
+        "open_in_tab": false
+    },
     "permissions": [
         "tabs",
         "activeTab",
         "downloads",
-        "http://192.168.2.101:8000/*",
-        "http://localhost:8000/*",
-        "http://127.0.0.1:8000/*"
+        "storage"
     ],
     "web_accessible_resources": [
         "sidebar.html",

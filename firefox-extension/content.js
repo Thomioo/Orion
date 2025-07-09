@@ -230,9 +230,9 @@ browser.runtime.onMessage.addListener((msg) => {
                     const doc = parser.parseFromString(html, 'text/html');
                     const bodyContent = doc.body.innerHTML;
 
-                    // Add resize handle
+                    // Add resize handle (will be conditionally enabled later)
                     sidebar.innerHTML = `
-                        <div id="sleek-sidebar-resize-handle"></div>
+                        <div id="sleek-sidebar-resize-handle" style="display: none;"></div>
                         ${bodyContent}
                     `;
                     const styleTag = doc.querySelector('style');
@@ -429,8 +429,21 @@ function setupSidebarFunctionality() {
     // Set up attach button functionality
     setupAttachButton();
 
-    // Set up resize functionality
-    setupSidebarResize();
+    // Check settings to see if resize functionality should be enabled
+    browser.runtime.sendMessage({ type: 'get-settings' })
+        .then(response => {
+            if (response.success && response.settings.resizableSidebar) {
+                console.log('Resizable sidebar enabled in settings');
+                setupSidebarResize();
+            } else {
+                console.log('Resizable sidebar disabled in settings');
+            }
+        })
+        .catch(err => {
+            console.error('Error getting settings, defaulting to resizable enabled:', err);
+            // Default to enabled if we can't get settings
+            setupSidebarResize();
+        });
 }
 
 function setupScrollPrevention() {
@@ -798,6 +811,9 @@ function setupSidebarResize() {
         console.error('Sidebar or resize handle not found for resize functionality');
         return;
     }
+
+    // Show the resize handle
+    resizeHandle.style.display = 'block';
 
     let isResizing = false;
     let startX = 0;

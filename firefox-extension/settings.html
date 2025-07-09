@@ -6,75 +6,169 @@
     <meta charset="UTF-8">
     <title>Orion Settings</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
+        * {
             margin: 0;
-            padding: 20px;
-            line-height: 1.5;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 14px;
         }
 
         .container {
-            max-width: 600px;
-            margin: 0;
-            background: #1a1a1a;
-            border-radius: 8px;
-            padding: 0;
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
-        h2 {
-            margin-top: 0;
+        .settings-card {
+            background: rgba(42, 42, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
             margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
             color: #ffffff;
-            font-size: 1.5em;
-            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-of-type {
+            margin-bottom: 20px;
         }
 
         label {
             display: block;
-            margin-top: 16px;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #e0e0e0;
+            color: #f0f0f0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         input[type="text"],
         input[type="number"] {
             width: 100%;
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 2px solid #404040;
-            background: #2a2a2a;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
             color: #ffffff;
-            box-sizing: border-box;
             font-size: 14px;
-            transition: border-color 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
         }
 
         input[type="text"]:focus,
         input[type="number"]:focus {
             outline: none;
-            border-color: #0084ff;
-            box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.1);
+            border-color: #4A9EFF;
+            background: rgba(74, 158, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        input[type="text"]::placeholder,
+        input[type="number"]::placeholder {
+            color: #666;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .checkbox-wrapper {
+            position: relative;
+            margin-right: 12px;
         }
 
         input[type="checkbox"] {
-            margin-right: 8px;
-            transform: scale(1.1);
-            accent-color: #0084ff;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #4A9EFF;
+            border-color: #4A9EFF;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
         }
 
         .checkbox-label {
-            display: flex;
-            align-items: center;
-            margin-top: 16px;
+            color: #e8e8e8;
             font-weight: 500;
-            color: #e0e0e0;
             cursor: pointer;
+            flex: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            margin: 0;
         }
 
-        /* Remove number input spinners/arrows for all browsers */
+        .checkbox-description {
+            color: #999;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Remove number input spinners */
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
             -webkit-appearance: none;
@@ -87,81 +181,154 @@
         }
 
         button {
-            margin-top: 24px;
+            width: 100%;
             padding: 12px 24px;
-            border-radius: 6px;
+            border-radius: 8px;
             border: none;
-            background: #0084ff;
-            color: #ffffff;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        button:hover {
-            background: #0066cc;
+        .btn-primary {
+            background: linear-gradient(135deg, #4A9EFF 0%, #357ABD 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
         }
 
-        button:active {
-            background: #0052a3;
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #357ABD 0%, #2968A3 100%);
+            box-shadow: 0 6px 16px rgba(74, 158, 255, 0.4);
+            transform: translateY(-2px);
         }
 
         .status {
             margin-top: 12px;
-            color: #00d084;
+            padding: 10px 14px;
+            border-radius: 8px;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .status.success {
+            background: rgba(0, 208, 132, 0.15);
+            color: #00d084;
+            border: 1px solid rgba(0, 208, 132, 0.3);
+        }
+
+        .status.error {
+            background: rgba(255, 59, 92, 0.15);
+            color: #ff3b5c;
+            border: 1px solid rgba(255, 59, 92, 0.3);
         }
 
         .help-info {
-            margin-bottom: 24px;
-            padding: 16px;
-            background: #2a2a2a;
-            border: 1px solid #404040;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid rgba(74, 158, 255, 0.2);
             border-radius: 8px;
-            font-size: 14px;
-            color: #b0b0b0;
+            font-size: 13px;
+            color: #b8d4ff;
         }
 
         .help-info strong {
             color: #ffffff;
             display: block;
             margin-bottom: 4px;
+            font-weight: 600;
         }
 
         .help-info a {
-            color: #0084ff;
+            color: #4A9EFF;
             text-decoration: none;
+            font-weight: 500;
         }
 
         .help-info a:hover {
             text-decoration: underline;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            margin: 16px 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px 12px;
+            }
+
+            .settings-card {
+                padding: 20px 16px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h2>Orion Settings</h2>
-        <div class="help-info">
-            <strong>Please fill in the settings below.</strong><br><a href="https://github.com/Thomioo/Orion#setup"
-                target="_blank">View setup guide</a>
+        <div class="settings-card">
+            <div class="header">
+                <h1>Orion Settings</h1>
+                <p>Configure your extension preferences</p>
+            </div>
+
+            <div class="help-info">
+                <strong>Server Configuration</strong>
+                Make sure your Orion server is running and accessible.
+                <a href="https://github.com/Thomioo/Orion#setup" target="_blank">View setup guide</a>
+            </div>
+
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="serverHost">Server Host</label>
+                    <input type="text" id="serverHost" placeholder="192.168.1.100 or localhost" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="serverPort">Server Port</label>
+                    <input type="number" id="serverPort" placeholder="8000" min="1" max="65535" required>
+                </div>
+                <div class="divider"></div>
+
+                <div class="form-group">
+                    <label>Sidebar Options</label>
+                    <div class="checkbox-group" onclick="document.getElementById('resizableSidebar').click()">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="resizableSidebar">
+                        </div>
+                        <div>
+                            <div class="checkbox-label">Enable resizable sidebar</div>
+                            <div class="checkbox-description">Allow dragging the sidebar edge to resize</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Save Settings</button>
+
+                <div class="status" id="status"></div>
+            </form>
         </div>
-        <form id="settingsForm">
-            <label>Server Host
-                <input type="text" id="serverHost" required>
-            </label>
-            <label>Server Port
-                <input type="number" id="serverPort" min="1" max="65535" required>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="resizableSidebar">
-                Enable resizable sidebar
-            </label>
-            <button type="submit">Save</button>
-            <div class="status" id="status"></div>
-        </form>
     </div>
     <script src="settings.js"></script>
 </body>

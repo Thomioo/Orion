@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orion Server Settings</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .settings-card {
+            background: rgba(42, 42, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-of-type {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #f0f0f0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #4A9EFF;
+            background: rgba(74, 158, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        input[type="text"]::placeholder,
+        input[type="number"]::placeholder {
+            color: #666;
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        select option {
+            background: #2a2a2a;
+            color: #ffffff;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .checkbox-wrapper {
+            position: relative;
+            margin-right: 12px;
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #4A9EFF;
+            border-color: #4A9EFF;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .checkbox-label {
+            color: #e8e8e8;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            margin: 0;
+        }
+
+        .checkbox-description {
+            color: #999;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Remove number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4A9EFF 0%, #357ABD 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #357ABD 0%, #2968A3 100%);
+            box-shadow: 0 6px 16px rgba(74, 158, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e8e8e8;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff3b5c 0%, #e60026 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(255, 59, 92, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #e60026 0%, #cc0021 100%);
+            box-shadow: 0 6px 16px rgba(255, 59, 92, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .status {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .status.success {
+            background: rgba(0, 208, 132, 0.15);
+            color: #00d084;
+            border: 1px solid rgba(0, 208, 132, 0.3);
+        }
+
+        .status.error {
+            background: rgba(255, 59, 92, 0.15);
+            color: #ff3b5c;
+            border: 1px solid rgba(255, 59, 92, 0.3);
+        }
+
+        .status.info {
+            background: rgba(74, 158, 255, 0.15);
+            color: #4A9EFF;
+            border: 1px solid rgba(74, 158, 255, 0.3);
+        }
+
+        .help-info {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #b8d4ff;
+        }
+
+        .help-info strong {
+            color: #ffffff;
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .help-info a {
+            color: #4A9EFF;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .help-info a:hover {
+            text-decoration: underline;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            margin: 16px 0;
+        }
+
+        .server-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(0, 208, 132, 0.1);
+            border: 1px solid rgba(0, 208, 132, 0.2);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .server-status.offline {
+            background: rgba(255, 59, 92, 0.1);
+            border-color: rgba(255, 59, 92, 0.2);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00d084;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: #ff3b5c;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-group button {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px 12px;
+            }
+
+            .settings-card {
+                padding: 20px 16px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group button {
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="settings-card">
+            <div class="header">
+                <h1>Orion Server Settings</h1>
+                <p>Configure server preferences and behavior</p>
+            </div>
+
+            <!-- Server Status -->
+            <div class="server-status" id="serverStatus">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Server Online</span>
+                </div>
+                <small id="uptimeText">Uptime: 2h 34m</small>
+            </div>
+
+            <div class="help-info">
+                <strong>Server Configuration</strong>
+                Changes will take effect after server restart.
+                <a href="#" onclick="alert('Documentation not yet available')">View documentation</a>
+            </div>
+
+            <form id="settingsForm">
+                <!-- Network Settings -->
+                <div class="form-group">
+                    <label for="serverHost">Server Host</label>
+                    <input type="text" id="serverHost" placeholder="Leave empty for auto-detect (192.168.x.x)">
+                </div>
+
+                <div class="form-group">
+                    <label for="serverPort">Server Port</label>
+                    <input type="number" id="serverPort" value="8000" min="1" max="65535" required>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Data Management -->
+                <div class="form-group">
+                    <label for="dataRetention">Data Retention (days)</label>
+                    <input type="number" id="dataRetention" value="30" min="1" max="365" required>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Action Buttons -->
+                <button type="submit" class="btn-primary">Save Settings</button>
+
+                <div class="button-group">
+                    <button type="button" class="btn-secondary" onclick="restartServer()">Restart Server</button>
+                    <button type="button" class="btn-danger" onclick="confirmClearHistory()">Clear History</button>
+                </div>
+
+                <div class="status" id="status"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Backend integration for Orion server settings
+
+        let isOnline = true;
+        let currentSettings = {};
+
+        // Load settings from server
+        async function loadSettings() {
+            try {
+                const response = await fetch('/settings');
+                if (response.ok) {
+                    currentSettings = await response.json();
+                    populateForm(currentSettings);
+                    console.log('Settings loaded:', currentSettings);
+                } else {
+                    throw new Error('Failed to load settings');
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                showStatus('Error loading settings', 'error');
+            }
+        }
+
+        // Load server status
+        async function loadServerStatus() {
+            try {
+                const response = await fetch('/status');
+                if (response.ok) {
+                    const status = await response.json();
+                    updateServerStatusDisplay(status);
+                    isOnline = status.isOnline;
+                } else {
+                    throw new Error('Failed to load status');
+                }
+            } catch (error) {
+                console.error('Error loading status:', error);
+                isOnline = false;
+                updateServerStatusDisplay({
+                    isOnline: false,
+                    uptime: 'Unknown',
+                    connections: 0
+                });
+            }
+        }
+
+        // Populate form with current settings
+        function populateForm(settings) {
+            document.getElementById('serverHost').value = settings.serverHost || '';
+            document.getElementById('serverPort').value = settings.serverPort || '8000';
+            document.getElementById('dataRetention').value = settings.dataRetention || 30;
+        }
+
+        // Update server status display
+        function updateServerStatusDisplay(status) {
+            const statusEl = document.getElementById('serverStatus');
+            const dotEl = document.getElementById('statusDot');
+            const textEl = document.getElementById('statusText');
+            const uptimeEl = document.getElementById('uptimeText');
+
+            if (status.isOnline) {
+                statusEl.classList.remove('offline');
+                dotEl.classList.remove('offline');
+                textEl.textContent = 'Server Online';
+                uptimeEl.textContent = `Uptime: ${status.uptime} | Connections: ${status.connections}`;
+            } else {
+                statusEl.classList.add('offline');
+                dotEl.classList.add('offline');
+                textEl.textContent = 'Server Offline';
+                uptimeEl.textContent = 'Unable to connect';
+            }
+        }
+
+        // Save settings to server
+        async function saveSettings(settings) {
+            try {
+                const response = await fetch('/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showStatus(result.message || 'Settings saved successfully', 'success');
+                    currentSettings = settings;
+                } else {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showStatus('Error saving settings: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type} show`;
+
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 3000);
+        }
+
+        function restartServer() {
+            showStatus('Server restart feature not yet implemented', 'info');
+            // Note: Server restart would require additional implementation
+            // to gracefully shut down and restart the Go server
+        }
+
+        function confirmClearHistory() {
+            if (confirm('Are you sure you want to clear all history? This action cannot be undone and will remove all messages and files.')) {
+                clearHistory();
+            }
+        }
+
+        // Clear history function
+        async function clearHistory() {
+            try {
+                showStatus('Clearing history...', 'info');
+
+                const response = await fetch('/clear-history', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showStatus(result.message || 'History cleared successfully', 'success');
+                } else {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+            } catch (error) {
+                console.error('Error clearing history:', error);
+                showStatus('Error clearing history: ' + error.message, 'error');
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('settingsForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const settings = {
+                serverHost: document.getElementById('serverHost').value.trim(),
+                serverPort: document.getElementById('serverPort').value,
+                dataRetention: parseInt(document.getElementById('dataRetention').value)
+            };
+
+            // Validate settings
+            if (!settings.serverPort || settings.dataRetention < 1) {
+                showStatus('Please fill in all required fields with valid values', 'error');
+                return;
+            }
+
+            showStatus('Saving settings...', 'info');
+            saveSettings(settings);
+        });
+
+        // Initialize page
+        async function initializePage() {
+            await loadSettings();
+            await loadServerStatus();
+        }
+
+        // Periodic status updates
+        setInterval(loadServerStatus, 5000);
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+
+</html>

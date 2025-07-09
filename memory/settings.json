@@ -1,5 +1,5 @@
 {
-    "autoClearHistory": "never",
+    "serverHost": "192.168.2.101",
     "serverPort": "8000",
-    "lastClearTimestamp": 1752096268
+    "dataRetention": 30
 }
