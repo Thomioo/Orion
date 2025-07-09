@@ -293,7 +293,7 @@ browser.runtime.onMessage.addListener((msg) => {
                                 z-index: 10 !important;
                             }
                             #sleek-sidebar-resize-handle:hover {
-                                background: rgba(74, 158, 255, 0.3) !important;
+                                background: transparent !important;
                             }
                             #sleek-sidebar.resizing {
                                 transition: none !important;
@@ -370,8 +370,17 @@ browser.runtime.onMessage.addListener((msg) => {
                     }
                     document.body.appendChild(sidebar);
 
-                    // Set initial dimensions
-                    const initialWidth = Math.max(300, Math.min(window.innerWidth * 0.26, window.innerWidth * 0.6));
+                    // Set initial dimensions - check for saved width first
+                    const savedWidth = localStorage.getItem('orion-sidebar-width');
+                    let initialWidth;
+                    if (savedWidth) {
+                        // Use saved width but still apply constraints
+                        const parsedWidth = parseInt(savedWidth, 10);
+                        initialWidth = Math.max(300, Math.min(parsedWidth, window.innerWidth * 0.6));
+                    } else {
+                        // Default to 26% of viewport width
+                        initialWidth = Math.max(300, Math.min(window.innerWidth * 0.26, window.innerWidth * 0.6));
+                    }
                     sidebar.style.setProperty('width', initialWidth + 'px', 'important');
 
                     // Set up sidebar functionality directly here
@@ -843,7 +852,11 @@ function setupSidebarResize() {
         // Reset cursor
         document.body.style.cursor = '';
 
-        console.log('Finished resizing sidebar');
+        // Save the current width to localStorage
+        const currentWidth = sidebar.offsetWidth;
+        localStorage.setItem('orion-sidebar-width', currentWidth.toString());
+
+        console.log('Finished resizing sidebar, saved width:', currentWidth);
     });
 
     // Handle touch events for mobile support
@@ -875,5 +888,11 @@ function setupSidebarResize() {
         if (!isResizing) return;
         isResizing = false;
         sidebar.classList.remove('resizing');
+
+        // Save the current width to localStorage
+        const currentWidth = sidebar.offsetWidth;
+        localStorage.setItem('orion-sidebar-width', currentWidth.toString());
+
+        console.log('Finished touch resizing sidebar, saved width:', currentWidth);
     });
 }
