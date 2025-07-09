@@ -251,6 +251,13 @@
             "from": "PC",
             "type": "text",
             "content": "halo"
+        },
+        {
+            "id": "item_1752075617576753200",
+            "timestamp": "2025-07-09T17:40:17.5767532+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "ahoj chart"
         }
     ]
 }

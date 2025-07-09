@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed" // For embedding files
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,16 +10,21 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/getlantern/systray"
 	"github.com/gorilla/websocket"
 )
 
 var (
 	serverPort = "8000" // Default port, can be changed if needed
 )
+
+//go:embed icon.ico
+var iconData []byte
 
 func findAvailablePort(startPort string) string {
 	port := startPort
@@ -675,7 +681,31 @@ func (cm *ConnectionManager) BroadcastYouTubeInfo(videoInfo YouTubeVideoInfo) {
 var connectionManager = NewConnectionManager()
 
 func main() {
-	startServer()
+	if runtime.GOOS == "windows" {
+		systray.Run(onReady, onExit)
+	} else {
+		startServer()
+	}
+}
+
+func onReady() {
+	systray.SetIcon(iconData)
+	systray.SetTitle("Orion")
+	systray.SetTooltip("Orion is running")
+
+	mQuit := systray.AddMenuItem("Quit", "Exit the app")
+
+	go func() {
+		<-mQuit.ClickedCh
+		systray.Quit()
+		os.Exit(0)
+	}()
+
+	go startServer()
+}
+
+func onExit() {
+	// Optional: cleanup code
 }
 
 // Handle YouTube video info from PC
