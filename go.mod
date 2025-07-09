@@ -5,7 +5,6 @@ go 1.24.4
 require (
 	github.com/getlantern/systray v1.2.2
 	github.com/gorilla/websocket v1.5.3
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 )
 
 require (
