@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Orion Mobile</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
         * {
             margin: 0;
@@ -36,6 +37,10 @@
             left: 0;
             right: 0;
             z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
         }
 
         #conversation {
@@ -166,19 +171,19 @@
         }
 
         .message.from-PC {
-            background: #2B5A87;
-            color: white;
-            margin-left: auto;
-            margin-right: 10px;
-            text-align: right;
-        }
-
-        .message.from-phone {
             background: #333;
             color: white;
             margin-left: 10px;
             margin-right: auto;
             text-align: left;
+        }
+
+        .message.from-phone {
+            background: #2B5A87;
+            color: white;
+            margin-left: auto;
+            margin-right: 10px;
+            text-align: right;
         }
 
         .message .timestamp {
@@ -302,16 +307,22 @@
         .youtube-popup .btn:active {
             opacity: 0.6;
         }
+
+        img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
+        <img id="orionIcon" alt="" src="/imgs/icon_shiny.png">
         Orion
     </div>
     <div id="conversation"></div>
 
-    <!-- YouTube video popup -->
     <div id="youtubePopup" class="youtube-popup">
         <div class="title">YouTube video playing on PC</div>
         <div class="info" id="youtubeInfo"></div>
