@@ -245,6 +245,11 @@ browser.runtime.onMessage.addListener((msg) => {
                             .replace(/\bbody\b/g, '#sleek-sidebar')
                             .replace(/\.hello\b/g, '#sleek-sidebar .hello')
                             .replace(/#conversation\b/g, '#sleek-sidebar #conversation')
+                            .replace(/#qrContainer\b/g, '#sleek-sidebar #qrContainer')
+                            .replace(/#qrContainer\.hidden\b/g, '#sleek-sidebar #qrContainer.hidden')
+                            .replace(/#qrCode\b/g, '#sleek-sidebar #qrCode')
+                            .replace(/#qrText\b/g, '#sleek-sidebar #qrText')
+                            .replace(/#qrUrl\b/g, '#sleek-sidebar #qrUrl')
                             .replace(/\.inputDiv\b/g, '#sleek-sidebar .inputDiv')
                             .replace(/\.input-container\b/g, '#sleek-sidebar .input-container')
                             .replace(/#inputField\b/g, '#sleek-sidebar #inputField')
@@ -428,6 +433,9 @@ function setupSidebarFunctionality() {
 
     // Set up attach button functionality
     setupAttachButton();
+
+    // Set up QR code functionality
+    setupQRCode();
 
     // Check settings to see if resize functionality should be enabled
     browser.runtime.sendMessage({ type: 'get-settings' })
@@ -657,6 +665,9 @@ function displayConversationData(data) {
     } else {
         conversationDiv.innerHTML = '<div style="color: #aaa; padding: 20px; text-align: center;">No messages yet</div>';
     }
+
+    // Update QR code visibility based on conversation content
+    checkMessagesAndToggleQR();
 }
 
 function setupIcons() {
@@ -734,6 +745,107 @@ function setupAttachButton() {
         });
     } else {
         console.error('Input field not found');
+    }
+}
+
+// QR Code functionality
+function generateQRCode(text, elementId) {
+    // Use QR Server API for larger QR code
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(text)}`;
+    const img = document.createElement('img');
+    img.src = qrUrl;
+    img.alt = 'QR Code';
+    img.style.cssText = 'width: 180px !important; height: 180px !important; max-width: 180px !important; max-height: 180px !important; display: block !important;';
+
+    const container = document.getElementById(elementId);
+    if (container) {
+        container.innerHTML = '';
+        container.appendChild(img);
+    }
+}
+
+function setupQRCode() {
+    console.log('Setting up QR code');
+
+    // Get server settings and generate QR code
+    browser.runtime.sendMessage({ type: 'get-settings' })
+        .then(response => {
+            let settings;
+            if (response && response.success && response.settings) {
+                settings = response.settings;
+            } else {
+                // Fallback to default settings
+                settings = {
+                    serverHost: '192.168.2.101',
+                    serverPort: 8000
+                };
+            }
+
+            const mobileUrl = `http://${settings.serverHost}:${settings.serverPort}/mobile`;
+
+            // Generate QR code
+            generateQRCode(mobileUrl, 'qrCode');
+
+            // Update URL display
+            const qrUrlElement = document.getElementById('qrUrl');
+            if (qrUrlElement) {
+                qrUrlElement.textContent = mobileUrl;
+            }
+
+            console.log('QR code set up for URL:', mobileUrl);
+        })
+        .catch(error => {
+            console.error('Error setting up QR code:', error);
+            // Fallback URL
+            const fallbackUrl = 'http://192.168.2.101:8000/mobile';
+            generateQRCode(fallbackUrl, 'qrCode');
+            const qrUrlElement = document.getElementById('qrUrl');
+            if (qrUrlElement) {
+                qrUrlElement.textContent = fallbackUrl;
+            }
+        });
+
+    // Set up initial QR code visibility
+    checkMessagesAndToggleQR();
+
+    // Listen for settings changes to update QR code
+    if (typeof browser !== 'undefined' && browser.storage) {
+        browser.storage.onChanged.addListener(function (changes, namespace) {
+            if (namespace === 'local' && changes.orionSettings) {
+                console.log('Settings changed, updating QR code');
+                setupQRCode();
+            }
+        });
+    }
+}
+
+function checkMessagesAndToggleQR() {
+    const conversation = document.getElementById('conversation');
+    const qrContainer = document.getElementById('qrContainer');
+
+    if (!conversation || !qrContainer) {
+        console.log('Elements not found for QR toggle');
+        return;
+    }
+
+    // Check if conversation has real message elements (not just the "No messages yet" placeholder)
+    const hasRealMessages = conversation.children.length > 0 &&
+        !conversation.innerHTML.includes('No messages yet');
+
+    console.log('Checking QR visibility:', {
+        childrenCount: conversation.children.length,
+        innerHTML: conversation.innerHTML.substring(0, 100) + '...',
+        hasRealMessages: hasRealMessages
+    });
+
+    if (hasRealMessages) {
+        // Use direct style manipulation for higher specificity
+        qrContainer.style.setProperty('display', 'none', 'important');
+        console.log('QR code hidden - messages present');
+    } else {
+        // Show the QR container
+        qrContainer.style.setProperty('display', 'flex', 'important');
+        console.log('QR code shown - no messages');
     }
 }
 
