@@ -59,7 +59,7 @@ Orion is a sleek, real-time communication bridge between your PC and mobile devi
 
 **YouTube Integration**:
 - While watching YouTube, your current video and timestamp automatically sync to mobile
-- Mobile users can continue watching from your exact position
+- You can continue watching from your exact position
 
 ### 📱 Mobile Interface
 
