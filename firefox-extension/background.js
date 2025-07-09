@@ -185,7 +185,160 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
     }
+
+    if (request.type === 'connect-websocket') {
+        console.log('Background script: WebSocket connection requested from tab:', sender.tab.id);
+        connectedTabs.add(sender.tab.id);
+
+        // Start WebSocket connection if not already connected
+        if (!websocket) {
+            connectWebSocketBackground();
+        }
+
+        // Send response immediately for now, but send connection status later
+        sendResponse({ success: true });
+
+        // If we already have an active WebSocket, notify the tab immediately
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            browser.tabs.sendMessage(sender.tab.id, {
+                type: 'websocket-status',
+                connected: true
+            }).catch(err => {
+                console.log('Failed to send WebSocket status to tab:', sender.tab.id, err);
+            });
+        }
+
+        return true;
+    }
+
+    if (request.type === 'disconnect-websocket') {
+        console.log('Background script: WebSocket disconnection requested from tab:', sender.tab.id);
+        connectedTabs.delete(sender.tab.id);
+
+        // If no tabs are connected, close WebSocket
+        if (connectedTabs.size === 0 && websocket) {
+            websocket.close();
+            websocket = null;
+        }
+
+        sendResponse({ success: true });
+        return true;
+    }
 });
 browser.browserAction.onClicked.addListener((tab) => {
     browser.tabs.sendMessage(tab.id, 'toggle-sidebar');
 });
+
+// WebSocket management
+let websocket = null;
+let reconnectInterval = null;
+const connectedTabs = new Set();
+
+// Function to connect to WebSocket from background script
+function connectWebSocketBackground() {
+    getServerUrl().then(serverUrl => {
+        const wsUrl = serverUrl.replace('http://', 'ws://') + '/pc/ws';
+        console.log('Background: Connecting to WebSocket:', wsUrl);
+
+        try {
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = function (event) {
+                console.log('Background: WebSocket connected');
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+
+                // Notify all connected tabs that WebSocket is connected
+                for (const tabId of connectedTabs) {
+                    browser.tabs.sendMessage(tabId, {
+                        type: 'websocket-status',
+                        connected: true
+                    }).catch(err => {
+                        console.log('Failed to send WebSocket status to tab:', tabId, err);
+                        connectedTabs.delete(tabId);
+                    });
+                }
+            };
+
+            websocket.onmessage = function (event) {
+                const message = JSON.parse(event.data);
+                console.log('Background: WebSocket message received:', message);
+
+                // Broadcast to all connected tabs
+                for (const tabId of connectedTabs) {
+                    browser.tabs.sendMessage(tabId, {
+                        type: 'websocket-data',
+                        data: message
+                    }).catch(err => {
+                        console.log('Failed to send to tab:', tabId, err);
+                        connectedTabs.delete(tabId);
+                    });
+                }
+            };
+
+            websocket.onclose = function (event) {
+                console.log('Background: WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+                websocket = null;
+
+                // Notify all connected tabs that WebSocket is disconnected
+                for (const tabId of connectedTabs) {
+                    browser.tabs.sendMessage(tabId, {
+                        type: 'websocket-status',
+                        connected: false,
+                        errorMessage: `Connection closed (${event.code}): ${event.reason || 'Unknown reason'}`
+                    }).catch(err => {
+                        console.log('Failed to send WebSocket status to tab:', tabId, err);
+                        connectedTabs.delete(tabId);
+                    });
+                }
+
+                // Attempt to reconnect every 3 seconds if we have connected tabs
+                if (!reconnectInterval && connectedTabs.size > 0) {
+                    reconnectInterval = setInterval(() => {
+                        if (connectedTabs.size > 0) {
+                            connectWebSocketBackground();
+                        } else {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
+                    }, 3000);
+                }
+            };
+
+            websocket.onerror = function (error) {
+                console.error('Background: WebSocket error:', error);
+                websocket = null;
+
+                // Notify all connected tabs that WebSocket has an error
+                for (const tabId of connectedTabs) {
+                    browser.tabs.sendMessage(tabId, {
+                        type: 'websocket-status',
+                        connected: false,
+                        error: true,
+                        errorMessage: 'WebSocket connection error'
+                    }).catch(err => {
+                        console.log('Failed to send WebSocket error status to tab:', tabId, err);
+                        connectedTabs.delete(tabId);
+                    });
+                }
+
+                // Start reconnection attempts if not already running
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        if (connectedTabs.size > 0) {
+                            connectWebSocketBackground();
+                        } else {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
+                    }, 3000);
+                }
+            };
+
+        } catch (error) {
+            console.error('Background: Failed to create WebSocket connection:', error);
+        }
+    });
+}

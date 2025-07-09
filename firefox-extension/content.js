@@ -218,6 +218,32 @@ function formatTime(seconds) {
 
 // Listen for toggle-sidebar message from background.js
 browser.runtime.onMessage.addListener((msg) => {
+    // Handle WebSocket data from background script
+    if (msg.type === 'websocket-data') {
+        console.log('Received WebSocket data from background script:', msg.data);
+
+        if (msg.data.type === 'initial' || msg.data.type === 'update') {
+            displayConversationData(msg.data.data);
+        }
+        return;
+    }
+
+    // Handle WebSocket status updates from background script
+    if (msg.type === 'websocket-status') {
+        console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
+        websocketConnected = msg.connected;
+
+        if (!msg.connected) {
+            if (msg.error || msg.errorMessage) {
+                console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
+            }
+            console.log('WebSocket disconnected, relying on HTTP for updates');
+            // The background script handles reconnection attempts
+        }
+        return;
+    }
+
+    // Handle sidebar toggle
     if (msg === 'toggle-sidebar') {
         let sidebar = document.getElementById('sleek-sidebar');
         if (!sidebar) {
@@ -411,6 +437,13 @@ browser.runtime.onMessage.addListener((msg) => {
                 const sidebarWidth = sidebar.offsetWidth;
                 sidebar.style.setProperty('right', `-${sidebarWidth + 10}px`, 'important');
                 setTimeout(() => {
+                    // Disconnect WebSocket when sidebar is removed
+                    if (websocketConnected) {
+                        browser.runtime.sendMessage({ type: 'disconnect-websocket' }).catch(() => {
+                            // Ignore errors
+                        });
+                        websocketConnected = false;
+                    }
                     if (sidebar.parentNode) sidebar.parentNode.removeChild(sidebar);
                 }, 300); // match transition duration
             } else {
@@ -497,105 +530,47 @@ function setupScrollPrevention() {
     }, { passive: false });
 }
 
-// WebSocket functionality for real-time updates
-let websocket = null;
-let reconnectInterval = null;
+// WebSocket functionality for real-time updates (via background script)
+let websocketConnected = false;
 
 function connectWebSocket() {
-    // Get server URL from background script
-    browser.runtime.sendMessage({ type: 'get-server-url' })
+    if (websocketConnected) {
+        console.log('WebSocket already connected, skipping connection request');
+        return;
+    }
+
+    console.log('Requesting WebSocket connection via background script');
+
+    // Request WebSocket connection through background script
+    browser.runtime.sendMessage({ type: 'connect-websocket' })
         .then(response => {
             if (response.success) {
-                // Check if current page is HTTPS to determine WebSocket protocol
-                const isSecure = window.location.protocol === 'https:';
-                let wsUrl;
-
-                if (isSecure) {
-                    // For HTTPS pages, try WSS first, fallback to HTTP polling if it fails
-                    wsUrl = response.serverUrl.replace('http://', 'wss://') + '/pc/ws';
-                } else {
-                    // For HTTP pages, use regular WS
-                    wsUrl = response.serverUrl.replace('http://', 'ws://') + '/pc/ws';
-                }
-
-                console.log('Connecting to WebSocket:', wsUrl, '(secure:', isSecure + ')');
-
-                try {
-                    websocket = new WebSocket(wsUrl);
-
-                    websocket.onopen = function (event) {
-                        console.log('WebSocket connected');
-                        if (reconnectInterval) {
-                            clearInterval(reconnectInterval);
-                            reconnectInterval = null;
-                        }
-                    };
-
-                    websocket.onmessage = function (event) {
-                        const message = JSON.parse(event.data);
-                        console.log('WebSocket message received:', message);
-
-                        if (message.type === 'initial' || message.type === 'update') {
-                            displayConversationData(message.data);
-                        }
-                    };
-
-                    websocket.onclose = function (event) {
-                        console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
-                        websocket = null;
-
-                        // If we're on HTTPS and WSS failed, fall back to HTTP polling
-                        if (isSecure && event.code === 1006) {
-                            console.log('WSS connection failed on HTTPS page, falling back to HTTP polling');
-                            loadConversationHTTP();
-                            return;
-                        }
-
-                        // Attempt to reconnect every 3 seconds for other cases
-                        if (!reconnectInterval) {
-                            reconnectInterval = setInterval(() => {
-                                connectWebSocket();
-                            }, 3000);
-                        }
-                    };
-
-                    websocket.onerror = function (error) {
-                        console.error('WebSocket error:', error);
-                        console.log('Page protocol:', window.location.protocol, 'WebSocket URL:', wsUrl);
-
-                        // If on HTTPS and WebSocket fails, fallback to HTTP polling
-                        if (isSecure) {
-                            console.log('WebSocket failed on HTTPS page, falling back to HTTP polling');
-                        }
-
-                        // Fallback to HTTP
-                        loadConversationHTTP();
-                    };
-                } catch (error) {
-                    console.error('Failed to create WebSocket connection:', error);
-                    console.log('Page protocol:', window.location.protocol, 'Attempted WebSocket URL:', wsUrl);
-
-                    if (isSecure) {
-                        console.log('WebSocket creation failed on HTTPS page - this is expected if server doesn\'t support WSS. Falling back to HTTP polling.');
-                    }
-
-                    // Fallback to HTTP
-                    loadConversationHTTP();
-                }
+                console.log('WebSocket connection request sent to background script');
+                // Don't set websocketConnected here - wait for websocket-status message
             } else {
-                console.error('Failed to get server URL');
+                console.error('Failed to request WebSocket connection via background script');
                 loadConversationHTTP();
             }
         })
         .catch(err => {
-            console.error('Error getting server URL:', err);
+            console.error('Error requesting WebSocket connection:', err);
             loadConversationHTTP();
         });
 }
 
 function loadConversation() {
-    // Try WebSocket first, fallback to HTTP
-    connectWebSocket();
+    console.log('Loading conversation, WebSocket connected:', websocketConnected);
+
+    // Always load initial data via HTTP to ensure we have current conversation
+    loadConversationHTTP();
+
+    // Also establish/maintain WebSocket connection for real-time updates
+    if (!websocketConnected) {
+        console.log('Establishing WebSocket connection for real-time updates');
+        connectWebSocket();
+    } else {
+        console.log('WebSocket already connected for real-time updates');
+    }
 }
 
 function loadConversationHTTP() {
@@ -616,6 +591,31 @@ function loadConversationHTTP() {
         .catch(err => {
             console.error('Error communicating with background script:', err);
         });
+}
+
+// Fallback polling for when WebSocket is not available
+let pollingInterval = null;
+
+function startPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+
+    console.log('Starting HTTP polling fallback (every 5 seconds)');
+    pollingInterval = setInterval(() => {
+        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+            console.log('Polling for updates (WebSocket not available)');
+            loadConversationHTTP();
+        }
+    }, 5000); // Poll every 5 seconds
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        console.log('Stopping HTTP polling');
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
 }
 
 function displayConversationData(data) {
@@ -904,6 +904,7 @@ function sendMessage() {
             if (response.success) {
                 console.log('Message sent successfully:', response);
                 inputField.value = ''; // Clear input field
+                console.log('Waiting for WebSocket update, connected:', websocketConnected);
                 // WebSocket will handle the update automatically
             } else {
                 console.error('Error sending message:', response.error);

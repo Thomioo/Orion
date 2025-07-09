@@ -281,41 +281,61 @@ function connectWebSocketBackground() {
             };
 
             websocket.onclose = function (event) {
-                console.log('Background: WebSocket disconnected, code:', event.code);
+                console.log('Background: WebSocket disconnected, code:', event.code, 'reason:', event.reason);
                 websocket = null;
 
                 // Notify all connected tabs that WebSocket is disconnected
                 for (const tabId of connectedTabs) {
                     chrome.tabs.sendMessage(tabId, {
                         type: 'websocket-status',
-                        connected: false
+                        connected: false,
+                        errorMessage: `Connection closed (${event.code}): ${event.reason || 'Unknown reason'}`
                     }).catch(err => {
                         console.log('Failed to send WebSocket status to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
                 }
 
-                // Attempt to reconnect every 3 seconds
-                if (!reconnectInterval) {
+                // Attempt to reconnect every 3 seconds if we have connected tabs
+                if (!reconnectInterval && connectedTabs.size > 0) {
                     reconnectInterval = setInterval(() => {
-                        connectWebSocketBackground();
+                        if (connectedTabs.size > 0) {
+                            connectWebSocketBackground();
+                        } else {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
                     }, 3000);
                 }
             };
 
             websocket.onerror = function (error) {
                 console.error('Background: WebSocket error:', error);
+                websocket = null;
 
                 // Notify all connected tabs that WebSocket has an error
                 for (const tabId of connectedTabs) {
                     chrome.tabs.sendMessage(tabId, {
                         type: 'websocket-status',
                         connected: false,
-                        error: true
+                        error: true,
+                        errorMessage: 'WebSocket connection error'
                     }).catch(err => {
                         console.log('Failed to send WebSocket error status to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
+                }
+
+                // Start reconnection attempts if not already running
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        if (connectedTabs.size > 0) {
+                            connectWebSocketBackground();
+                        } else {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
+                    }, 3000);
                 }
             };
 

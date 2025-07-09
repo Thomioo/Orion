@@ -230,12 +230,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     // Handle WebSocket status updates from background script
     if (msg.type === 'websocket-status') {
-        console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '');
+        console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
         websocketConnected = msg.connected;
 
-        if (!msg.connected && msg.error) {
-            console.log('WebSocket connection failed, falling back to HTTP polling');
-            // Don't automatically retry WebSocket on error, let the background script handle reconnection
+        if (!msg.connected) {
+            if (msg.error || msg.errorMessage) {
+                console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
+            }
+            console.log('WebSocket disconnected, relying on HTTP for updates');
+            // The background script handles reconnection attempts
         }
         return;
     }

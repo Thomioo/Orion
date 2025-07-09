@@ -397,7 +397,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request, from string) {
 	fmt.Printf("[DEBUG] Message: Data saved successfully\n")
 
 	// Broadcast update to all WebSocket connections
-	go connectionManager.BroadcastUpdate()
+	connectionManager.BroadcastUpdate()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "id": item.ID})
@@ -484,7 +484,7 @@ func handleFile(w http.ResponseWriter, r *http.Request, from string) {
 	fmt.Printf("[DEBUG] File: Data saved successfully\n")
 
 	// Broadcast update to all WebSocket connections
-	go connectionManager.BroadcastUpdate()
+	connectionManager.BroadcastUpdate()
 
 	// Generate file URL using the unique filename
 	fileURL := fmt.Sprintf("http://%s:%s/uploads/%s", getCurrentServerHost(), serverPort, uniqueFilename)
@@ -624,6 +624,15 @@ func handlePCWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Set connection timeouts
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+	// Set ping/pong handlers for connection health checking
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
 	// Add connection to manager
 	connectionManager.AddPCConnection(conn)
 	defer connectionManager.RemovePCConnection(conn)
@@ -640,6 +649,24 @@ func handlePCWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error sending initial data to PC WebSocket: %v", err)
 		return
 	}
+
+	// Start ping ticker
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Handle messages and pings
+	go func() {
+		defer conn.Close()
+		for {
+			select {
+			case <-ticker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					fmt.Printf("[DEBUG] PC WebSocket ping failed: %v\n", err)
+					return
+				}
+			}
+		}
+	}()
 
 	// Keep connection alive and handle incoming messages
 	for {
@@ -662,6 +689,15 @@ func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Set connection timeouts
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+	// Set ping/pong handlers for connection health checking
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
 	// Add connection to manager
 	connectionManager.AddMobileConnection(conn)
 	defer connectionManager.RemoveMobileConnection(conn)
@@ -679,6 +715,24 @@ func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start ping ticker
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Handle messages and pings
+	go func() {
+		defer conn.Close()
+		for {
+			select {
+			case <-ticker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					fmt.Printf("[DEBUG] Mobile WebSocket ping failed: %v\n", err)
+					return
+				}
+			}
+		}
+	}()
+
 	// Keep connection alive and handle incoming messages
 	for {
 		_, _, err := conn.ReadMessage()
@@ -694,6 +748,9 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all origins for simplicity
 	},
+	ReadBufferSize:   1024,
+	WriteBufferSize:  1024,
+	HandshakeTimeout: 45 * time.Second,
 }
 
 // WebSocket connection management
@@ -739,48 +796,108 @@ func (cm *ConnectionManager) RemoveMobileConnection(conn *websocket.Conn) {
 }
 
 func (cm *ConnectionManager) BroadcastUpdate() {
-	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
-
-	// Load latest data
+	// Load latest data first (outside the lock)
 	data := loadData()
 
-	// Broadcast to all connections (both PC and mobile)
-	allConnections := make([]*websocket.Conn, 0, len(cm.pcConnections)+len(cm.mobileConnections))
+	cm.mutex.RLock()
+
+	// Create snapshots of connections to avoid holding the lock too long
+	pcConnections := make([]*websocket.Conn, 0, len(cm.pcConnections))
+	mobileConnections := make([]*websocket.Conn, 0, len(cm.mobileConnections))
+
 	for conn := range cm.pcConnections {
-		allConnections = append(allConnections, conn)
+		pcConnections = append(pcConnections, conn)
 	}
 	for conn := range cm.mobileConnections {
-		allConnections = append(allConnections, conn)
+		mobileConnections = append(mobileConnections, conn)
 	}
 
-	for _, conn := range allConnections {
-		err := conn.WriteJSON(map[string]interface{}{
-			"type": "update",
-			"data": data,
-		})
+	cm.mutex.RUnlock()
+
+	// Track connections to remove due to errors
+	var pcToRemove []*websocket.Conn
+	var mobileToRemove []*websocket.Conn
+
+	// Create the message once
+	message := map[string]interface{}{
+		"type": "update",
+		"data": data,
+	}
+
+	// Broadcast to PC connections concurrently
+	for _, conn := range pcConnections {
+		err := conn.WriteJSON(message)
 		if err != nil {
-			fmt.Printf("Error broadcasting to connection: %v", err)
+			fmt.Printf("[DEBUG] Error broadcasting to PC connection: %v\n", err)
+			pcToRemove = append(pcToRemove, conn)
 		}
+	}
+
+	// Broadcast to mobile connections concurrently
+	for _, conn := range mobileConnections {
+		err := conn.WriteJSON(message)
+		if err != nil {
+			fmt.Printf("[DEBUG] Error broadcasting to mobile connection: %v\n", err)
+			mobileToRemove = append(mobileToRemove, conn)
+		}
+	}
+
+	// Remove failed connections (acquire write lock only if needed)
+	if len(pcToRemove) > 0 || len(mobileToRemove) > 0 {
+		cm.mutex.Lock()
+		for _, conn := range pcToRemove {
+			delete(cm.pcConnections, conn)
+			conn.Close()
+		}
+		for _, conn := range mobileToRemove {
+			delete(cm.mobileConnections, conn)
+			conn.Close()
+		}
+		fmt.Printf("[DEBUG] Removed %d failed PC connections, %d failed mobile connections\n", len(pcToRemove), len(mobileToRemove))
+		fmt.Printf("[DEBUG] Active connections - PC: %d, Mobile: %d\n", len(cm.pcConnections), len(cm.mobileConnections))
+		cm.mutex.Unlock()
 	}
 }
 
 // Broadcast YouTube video info to mobile connections only
 func (cm *ConnectionManager) BroadcastYouTubeInfo(videoInfo YouTubeVideoInfo) {
 	cm.mutex.RLock()
-	defer cm.mutex.RUnlock()
+
+	// Create snapshot of mobile connections
+	mobileConnections := make([]*websocket.Conn, 0, len(cm.mobileConnections))
+	for conn := range cm.mobileConnections {
+		mobileConnections = append(mobileConnections, conn)
+	}
+
+	cm.mutex.RUnlock()
+
+	// Track connections to remove due to errors
+	var mobileToRemove []*websocket.Conn
+
+	// Create the message once
+	message := map[string]interface{}{
+		"type": "youtube_info",
+		"data": videoInfo,
+	}
 
 	// Send only to mobile connections
-	for conn := range cm.mobileConnections {
-		if err := conn.WriteJSON(map[string]interface{}{
-			"type": "youtube_info",
-			"data": videoInfo,
-		}); err != nil {
-			fmt.Printf("Error broadcasting YouTube info to mobile connection: %v", err)
+	for _, conn := range mobileConnections {
+		if err := conn.WriteJSON(message); err != nil {
+			fmt.Printf("[DEBUG] Error broadcasting YouTube info to mobile connection: %v\n", err)
+			mobileToRemove = append(mobileToRemove, conn)
 		}
 	}
 
-	fmt.Printf("[DEBUG] ConnectionManager: Broadcasted YouTube info to %d mobile connections\n", len(cm.mobileConnections))
+	// Remove failed connections (acquire write lock only if needed)
+	if len(mobileToRemove) > 0 {
+		cm.mutex.Lock()
+		for _, conn := range mobileToRemove {
+			delete(cm.mobileConnections, conn)
+			conn.Close()
+		}
+		fmt.Printf("[DEBUG] Removed %d failed mobile connections during YouTube broadcast, total mobile: %d\n", len(mobileToRemove), len(cm.mobileConnections))
+		cm.mutex.Unlock()
+	}
 }
 
 var connectionManager = NewConnectionManager()
@@ -988,7 +1105,7 @@ func handleClearHistory(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("[DEBUG] Clear history: History cleared successfully\n")
 
 	// Broadcast update to all WebSocket connections
-	go connectionManager.BroadcastUpdate()
+	connectionManager.BroadcastUpdate()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "History cleared successfully"})
