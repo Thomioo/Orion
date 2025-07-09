@@ -229,7 +229,12 @@ browser.runtime.onMessage.addListener((msg) => {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const bodyContent = doc.body.innerHTML;
-                    sidebar.innerHTML = bodyContent;
+
+                    // Add resize handle
+                    sidebar.innerHTML = `
+                        <div id="sleek-sidebar-resize-handle"></div>
+                        ${bodyContent}
+                    `;
                     const styleTag = doc.querySelector('style');
                     if (styleTag) {
                         // More comprehensive CSS scoping to prevent conflicts
@@ -258,7 +263,7 @@ browser.runtime.onMessage.addListener((msg) => {
                             #sleek-sidebar {
                                 position: fixed !important;
                                 top: 1vh !important;
-                                right: -26vw !important;
+                                height: calc(98vh) !important;
                                 z-index: 2147483647 !important;
                                 transition: right 0.3s cubic-bezier(.4,0,.2,1) !important;
                                 box-shadow: -2px 0 8px rgba(0,0,0,0.2) !important;
@@ -277,8 +282,21 @@ browser.runtime.onMessage.addListener((msg) => {
                                 text-shadow: none !important;
                                 box-shadow: -2px 0 8px rgba(0,0,0,0.2) !important;
                             }
-                            #sleek-sidebar.open {
-                                right: 1vh !important;
+                            #sleek-sidebar-resize-handle {
+                                position: absolute !important;
+                                left: 0 !important;
+                                top: 0 !important;
+                                width: 5px !important;
+                                height: 100% !important;
+                                cursor: ew-resize !important;
+                                background: transparent !important;
+                                z-index: 10 !important;
+                            }
+                            #sleek-sidebar-resize-handle:hover {
+                                background: rgba(74, 158, 255, 0.3) !important;
+                            }
+                            #sleek-sidebar.resizing {
+                                transition: none !important;
                             }
                             #sleek-sidebar * {
                                 box-sizing: border-box !important;
@@ -352,24 +370,38 @@ browser.runtime.onMessage.addListener((msg) => {
                     }
                     document.body.appendChild(sidebar);
 
+                    // Set initial dimensions
+                    const initialWidth = Math.max(300, Math.min(window.innerWidth * 0.26, window.innerWidth * 0.6));
+                    sidebar.style.setProperty('width', initialWidth + 'px', 'important');
+
                     // Set up sidebar functionality directly here
                     setupSidebarFunctionality();
 
                     // Prevent scroll propagation when hovering over sidebar
                     setupScrollPrevention();
 
+                    // Set initial closed position based on width
+                    const sidebarWidth = sidebar.offsetWidth;
+                    sidebar.style.setProperty('right', `-${sidebarWidth + 10}px`, 'important');
+
                     // Slide in
-                    setTimeout(() => sidebar.classList.add('open'), 10);
+                    setTimeout(() => {
+                        sidebar.classList.add('open');
+                        sidebar.style.setProperty('right', '1vh', 'important');
+                    }, 10);
                 });
         } else {
             // If open, hide and remove from DOM; if closed, show
             if (sidebar.classList.contains('open')) {
                 sidebar.classList.remove('open');
+                const sidebarWidth = sidebar.offsetWidth;
+                sidebar.style.setProperty('right', `-${sidebarWidth + 10}px`, 'important');
                 setTimeout(() => {
                     if (sidebar.parentNode) sidebar.parentNode.removeChild(sidebar);
                 }, 300); // match transition duration
             } else {
                 sidebar.classList.add('open');
+                sidebar.style.setProperty('right', '1vh', 'important');
             }
         }
     }
@@ -387,6 +419,9 @@ function setupSidebarFunctionality() {
 
     // Set up attach button functionality
     setupAttachButton();
+
+    // Set up resize functionality
+    setupSidebarResize();
 }
 
 function setupScrollPrevention() {
@@ -744,4 +779,101 @@ function downloadFile(uniqueFilename, displayName) {
         .catch(err => {
             console.error('Error communicating with background script for download:', err);
         });
+}
+
+function setupSidebarResize() {
+    const sidebar = document.getElementById('sleek-sidebar');
+    const resizeHandle = document.getElementById('sleek-sidebar-resize-handle');
+
+    if (!sidebar || !resizeHandle) {
+        console.error('Sidebar or resize handle not found for resize functionality');
+        return;
+    }
+
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    resizeHandle.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = sidebar.offsetWidth;
+
+        // Add resizing class to disable transitions during resize
+        sidebar.classList.add('resizing');
+
+        // Change cursor for the entire document during resize
+        document.body.style.cursor = 'ew-resize';
+
+        console.log('Started resizing sidebar');
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (!isResizing) return;
+
+        e.preventDefault();
+
+        // Calculate new width (drag left to make wider, right to make narrower)
+        const deltaX = startX - e.clientX;
+        const newWidth = startWidth + deltaX;
+
+        // Apply constraints
+        const minWidth = 300;
+        const maxWidth = window.innerWidth * 0.6; // 60% of viewport width
+        const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+
+        // Update sidebar width
+        sidebar.style.setProperty('width', constrainedWidth + 'px', 'important');
+
+        // Update right position for open state
+        if (sidebar.classList.contains('open')) {
+            sidebar.style.setProperty('right', '1vh', 'important');
+        }
+    });
+
+    document.addEventListener('mouseup', function (e) {
+        if (!isResizing) return;
+
+        isResizing = false;
+
+        // Remove resizing class to re-enable transitions
+        sidebar.classList.remove('resizing');
+
+        // Reset cursor
+        document.body.style.cursor = '';
+
+        console.log('Finished resizing sidebar');
+    });
+
+    // Handle touch events for mobile support
+    resizeHandle.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        isResizing = true;
+        startX = e.touches[0].clientX;
+        startWidth = sidebar.offsetWidth;
+        sidebar.classList.add('resizing');
+    });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!isResizing) return;
+        e.preventDefault();
+
+        const deltaX = startX - e.touches[0].clientX;
+        const newWidth = startWidth + deltaX;
+        const minWidth = 300;
+        const maxWidth = window.innerWidth * 0.6;
+        const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+
+        sidebar.style.setProperty('width', constrainedWidth + 'px', 'important');
+        if (sidebar.classList.contains('open')) {
+            sidebar.style.setProperty('right', '1vh', 'important');
+        }
+    });
+
+    document.addEventListener('touchend', function (e) {
+        if (!isResizing) return;
+        isResizing = false;
+        sidebar.classList.remove('resizing');
+    });
 }
