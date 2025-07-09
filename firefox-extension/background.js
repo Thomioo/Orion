@@ -5,6 +5,14 @@ const DEFAULT_SETTINGS = {
     resizableSidebar: true
 };
 
+// Handle extension installation
+browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+        // Open settings page on first install
+        browser.runtime.openOptionsPage();
+    }
+});
+
 // Function to get server URL from settings
 function getServerUrl() {
     return new Promise((resolve) => {
