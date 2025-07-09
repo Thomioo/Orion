@@ -146,7 +146,7 @@ function sendYouTubeVideoInfo(videoElement, timestampLink) {
     console.log('Sending YouTube video info:', videoInfo);
 
     // Send to background script to forward to server
-    browser.runtime.sendMessage({
+    chrome.runtime.sendMessage({
         type: 'youtube-video-info',
         videoInfo: videoInfo
     }).then(response => {
@@ -216,14 +216,37 @@ function formatTime(seconds) {
     }
 }
 
-// Listen for toggle-sidebar message from background.js
-browser.runtime.onMessage.addListener((msg) => {
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Handle WebSocket data from background script
+    if (msg.type === 'websocket-data') {
+        console.log('Received WebSocket data from background script:', msg.data);
+
+        if (msg.data.type === 'initial' || msg.data.type === 'update') {
+            displayConversationData(msg.data.data);
+        }
+        return;
+    }
+
+    // Handle WebSocket status updates from background script
+    if (msg.type === 'websocket-status') {
+        console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '');
+        websocketConnected = msg.connected;
+
+        if (!msg.connected && msg.error) {
+            console.log('WebSocket connection failed, falling back to HTTP polling');
+            // Don't automatically retry WebSocket on error, let the background script handle reconnection
+        }
+        return;
+    }
+
+    // Handle sidebar toggle
     if (msg === 'toggle-sidebar') {
         let sidebar = document.getElementById('sleek-sidebar');
         if (!sidebar) {
             sidebar = document.createElement('div');
             sidebar.id = 'sleek-sidebar';
-            fetch(browser.runtime.getURL('sidebar.html'))
+            fetch(chrome.runtime.getURL('sidebar.html'))
                 .then(response => response.text())
                 .then(html => {
                     const parser = new DOMParser();
@@ -388,8 +411,10 @@ browser.runtime.onMessage.addListener((msg) => {
                     }
                     sidebar.style.setProperty('width', initialWidth + 'px', 'important');
 
-                    // Set up sidebar functionality directly here
-                    setupSidebarFunctionality();
+                    // Set up sidebar functionality with a small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        setupSidebarFunctionality();
+                    }, 50);
 
                     // Prevent scroll propagation when hovering over sidebar
                     setupScrollPrevention();
@@ -411,7 +436,16 @@ browser.runtime.onMessage.addListener((msg) => {
                 const sidebarWidth = sidebar.offsetWidth;
                 sidebar.style.setProperty('right', `-${sidebarWidth + 10}px`, 'important');
                 setTimeout(() => {
-                    if (sidebar.parentNode) sidebar.parentNode.removeChild(sidebar);
+                    if (sidebar.parentNode) {
+                        sidebar.parentNode.removeChild(sidebar);
+                        // Disconnect WebSocket when sidebar is removed
+                        if (websocketConnected) {
+                            chrome.runtime.sendMessage({ type: 'disconnect-websocket' }).catch(() => {
+                                // Ignore errors if extension context is invalidated
+                            });
+                            websocketConnected = false;
+                        }
+                    }
                 }, 300); // match transition duration
             } else {
                 sidebar.classList.add('open');
@@ -438,7 +472,7 @@ function setupSidebarFunctionality() {
     setupQRCode();
 
     // Check settings to see if resize functionality should be enabled
-    browser.runtime.sendMessage({ type: 'get-settings' })
+    chrome.runtime.sendMessage({ type: 'get-settings' })
         .then(response => {
             if (response.success && response.settings.resizableSidebar) {
                 console.log('Resizable sidebar enabled in settings');
@@ -497,109 +531,51 @@ function setupScrollPrevention() {
     }, { passive: false });
 }
 
-// WebSocket functionality for real-time updates
-let websocket = null;
-let reconnectInterval = null;
+// WebSocket functionality for real-time updates (via background script)
+let websocketConnected = false;
 
 function connectWebSocket() {
-    // Get server URL from background script
-    browser.runtime.sendMessage({ type: 'get-server-url' })
+    if (websocketConnected) {
+        console.log('WebSocket already connected, skipping connection request');
+        return;
+    }
+
+    console.log('Requesting WebSocket connection via background script');
+
+    // Request WebSocket connection through background script
+    chrome.runtime.sendMessage({ type: 'connect-websocket' })
         .then(response => {
             if (response.success) {
-                // Check if current page is HTTPS to determine WebSocket protocol
-                const isSecure = window.location.protocol === 'https:';
-                let wsUrl;
-
-                if (isSecure) {
-                    // For HTTPS pages, try WSS first, fallback to HTTP polling if it fails
-                    wsUrl = response.serverUrl.replace('http://', 'wss://') + '/pc/ws';
-                } else {
-                    // For HTTP pages, use regular WS
-                    wsUrl = response.serverUrl.replace('http://', 'ws://') + '/pc/ws';
-                }
-
-                console.log('Connecting to WebSocket:', wsUrl, '(secure:', isSecure + ')');
-
-                try {
-                    websocket = new WebSocket(wsUrl);
-
-                    websocket.onopen = function (event) {
-                        console.log('WebSocket connected');
-                        if (reconnectInterval) {
-                            clearInterval(reconnectInterval);
-                            reconnectInterval = null;
-                        }
-                    };
-
-                    websocket.onmessage = function (event) {
-                        const message = JSON.parse(event.data);
-                        console.log('WebSocket message received:', message);
-
-                        if (message.type === 'initial' || message.type === 'update') {
-                            displayConversationData(message.data);
-                        }
-                    };
-
-                    websocket.onclose = function (event) {
-                        console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
-                        websocket = null;
-
-                        // If we're on HTTPS and WSS failed, fall back to HTTP polling
-                        if (isSecure && event.code === 1006) {
-                            console.log('WSS connection failed on HTTPS page, falling back to HTTP polling');
-                            loadConversationHTTP();
-                            return;
-                        }
-
-                        // Attempt to reconnect every 3 seconds for other cases
-                        if (!reconnectInterval) {
-                            reconnectInterval = setInterval(() => {
-                                connectWebSocket();
-                            }, 3000);
-                        }
-                    };
-
-                    websocket.onerror = function (error) {
-                        console.error('WebSocket error:', error);
-                        console.log('Page protocol:', window.location.protocol, 'WebSocket URL:', wsUrl);
-
-                        // If on HTTPS and WebSocket fails, fallback to HTTP polling
-                        if (isSecure) {
-                            console.log('WebSocket failed on HTTPS page, falling back to HTTP polling');
-                        }
-
-                        // Fallback to HTTP
-                        loadConversationHTTP();
-                    };
-                } catch (error) {
-                    console.error('Failed to create WebSocket connection:', error);
-                    console.log('Page protocol:', window.location.protocol, 'Attempted WebSocket URL:', wsUrl);
-
-                    if (isSecure) {
-                        console.log('WebSocket creation failed on HTTPS page - this is expected if server doesn\'t support WSS. Falling back to HTTP polling.');
-                    }
-
-                    // Fallback to HTTP
-                    loadConversationHTTP();
-                }
+                console.log('WebSocket connection request sent to background script');
+                // Don't set websocketConnected here - wait for websocket-status message
             } else {
-                console.error('Failed to get server URL');
+                console.error('Failed to request WebSocket connection via background script');
                 loadConversationHTTP();
             }
         })
         .catch(err => {
-            console.error('Error getting server URL:', err);
+            console.error('Error requesting WebSocket connection:', err);
             loadConversationHTTP();
         });
 }
 
 function loadConversation() {
-    // Try WebSocket first, fallback to HTTP
-    connectWebSocket();
+    console.log('Loading conversation, WebSocket connected:', websocketConnected);
+
+    // Always load initial data via HTTP to ensure we have current conversation
+    loadConversationHTTP();
+
+    // Also establish/maintain WebSocket connection for real-time updates
+    if (!websocketConnected) {
+        console.log('Establishing WebSocket connection for real-time updates');
+        connectWebSocket();
+    } else {
+        console.log('WebSocket already connected for real-time updates');
+    }
 }
 
 function loadConversationHTTP() {
-    browser.runtime.sendMessage({ type: 'fetch-conversation' })
+    chrome.runtime.sendMessage({ type: 'fetch-conversation' })
         .then(response => {
             if (response.success) {
                 try {
@@ -619,11 +595,15 @@ function loadConversationHTTP() {
 }
 
 function displayConversationData(data) {
+    console.log('displayConversationData called with data:', data);
+
     const conversationDiv = document.getElementById('conversation');
     if (!conversationDiv) {
-        console.error('Conversation div not found');
+        console.error('Conversation div not found - sidebar may not be fully loaded yet');
         return;
     }
+
+    console.log('Found conversation div, displaying', data?.items?.length || 0, 'items');
 
     // Clear existing content
     conversationDiv.innerHTML = '';
@@ -702,12 +682,12 @@ function displayConversationData(data) {
 }
 
 function setupIcons() {
-    // Check if browser.runtime is available
-    if (typeof browser !== 'undefined' && browser.runtime) {
+    // Check if chrome.runtime is available
+    if (typeof chrome !== 'undefined' && chrome.runtime) {
         // Set up header icon
         const orionIcon = document.getElementById('orionIcon');
         if (orionIcon) {
-            const headerIconUrl = browser.runtime.getURL('imgs/icon_shiny.png');
+            const headerIconUrl = chrome.runtime.getURL('imgs/icon_shiny.png');
             console.log('Setting header icon URL:', headerIconUrl);
             orionIcon.src = headerIconUrl;
 
@@ -725,7 +705,7 @@ function setupIcons() {
         // Set up attachment icon
         const attachIcon = document.getElementById('attachIcon');
         if (attachIcon) {
-            const iconUrl = browser.runtime.getURL('imgs/attachment.png');
+            const iconUrl = chrome.runtime.getURL('imgs/attachment.png');
             console.log('Setting attachment icon URL:', iconUrl);
             attachIcon.src = iconUrl;
 
@@ -741,7 +721,7 @@ function setupIcons() {
             console.error('attachIcon element not found');
         }
     } else {
-        console.error('browser.runtime not available');
+        console.error('chrome.runtime not available');
     }
 }
 
@@ -799,7 +779,7 @@ function setupQRCode() {
     console.log('Setting up QR code');
 
     // Get server settings and generate QR code
-    browser.runtime.sendMessage({ type: 'get-settings' })
+    chrome.runtime.sendMessage({ type: 'get-settings' })
         .then(response => {
             let settings;
             if (response && response.success && response.settings) {
@@ -840,8 +820,8 @@ function setupQRCode() {
     checkMessagesAndToggleQR();
 
     // Listen for settings changes to update QR code
-    if (typeof browser !== 'undefined' && browser.storage) {
-        browser.storage.onChanged.addListener(function (changes, namespace) {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.onChanged.addListener(function (changes, namespace) {
             if (namespace === 'local' && changes.orionSettings) {
                 console.log('Settings changed, updating QR code');
                 setupQRCode();
@@ -893,10 +873,10 @@ function sendMessage() {
         return;
     }
 
-    console.log('Sending message:', messageText);
+    console.log('Sending message:', messageText, 'WebSocket connected:', websocketConnected);
 
     // Send message via background script
-    browser.runtime.sendMessage({
+    chrome.runtime.sendMessage({
         type: 'send-message',
         text: messageText
     })
@@ -904,6 +884,7 @@ function sendMessage() {
             if (response.success) {
                 console.log('Message sent successfully:', response);
                 inputField.value = ''; // Clear input field
+                console.log('Waiting for WebSocket update, connected:', websocketConnected);
                 // WebSocket will handle the update automatically
             } else {
                 console.error('Error sending message:', response.error);
@@ -922,7 +903,7 @@ function sendFile(file) {
     formData.append('file', file);
 
     // Send file via background script
-    browser.runtime.sendMessage({
+    chrome.runtime.sendMessage({
         type: 'send-file',
         formData: formData
     })
@@ -948,7 +929,7 @@ function downloadFile(uniqueFilename, displayName) {
     console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
 
     // Use background script's download handler to avoid HTTP warnings
-    browser.runtime.sendMessage({
+    chrome.runtime.sendMessage({
         type: 'download-file',
         uniqueFilename: uniqueFilename,
         displayName: displayName
@@ -1074,3 +1055,12 @@ function setupSidebarResize() {
         console.log('Finished touch resizing sidebar, saved width:', currentWidth);
     });
 }
+
+// Clean up WebSocket connection when page unloads
+window.addEventListener('beforeunload', () => {
+    if (websocketConnected) {
+        chrome.runtime.sendMessage({ type: 'disconnect-websocket' }).catch(() => {
+            // Ignore errors if extension context is invalidated
+        });
+    }
+});

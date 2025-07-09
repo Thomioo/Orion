@@ -1,14 +1,12 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "Orion",
     "version": "1.0",
     "description": "Orion, the ultimate way for seamless connection with your phone.",
     "background": {
-        "scripts": [
-            "background.js"
-        ]
+        "service_worker": "background.js"
     },
-    "browser_action": {
+    "action": {
         "default_title": "Orion",
         "default_icon": {
             "16": "imgs/icon.png",
@@ -33,10 +31,23 @@
         "downloads",
         "storage"
     ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws: wss: http: https:;"
+    },
     "web_accessible_resources": [
-        "sidebar.html",
-        "sidebar.js",
-        "imgs/*"
+        {
+            "resources": [
+                "sidebar.html",
+                "sidebar.js",
+                "imgs/*"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
     ],
     "content_scripts": [
         {
@@ -48,5 +59,13 @@
             ],
             "run_at": "document_idle"
         }
-    ]
+    ],
+    "commands": {
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+Y"
+            },
+            "description": "Toggle Orion"
+        }
+    }
 }

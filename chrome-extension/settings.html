@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="icon" type="image/png" href="imgs/icon.png">
+    <meta charset="UTF-8">
+    <title>Orion Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .settings-card {
+            background: rgba(42, 42, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .header img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-content h1 {
+            margin-bottom: 0;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group:last-of-type {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #f0f0f0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #4A9EFF;
+            background: rgba(74, 158, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        input[type="text"]::placeholder,
+        input[type="number"]::placeholder {
+            color: #666;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .checkbox-wrapper {
+            position: relative;
+            margin-right: 12px;
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #4A9EFF;
+            border-color: #4A9EFF;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .checkbox-label {
+            color: #e8e8e8;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            margin: 0;
+        }
+
+        .checkbox-description {
+            color: #999;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Remove number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4A9EFF 0%, #357ABD 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #357ABD 0%, #2968A3 100%);
+            box-shadow: 0 6px 16px rgba(74, 158, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .status {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .status.success {
+            background: rgba(0, 208, 132, 0.15);
+            color: #00d084;
+            border: 1px solid rgba(0, 208, 132, 0.3);
+        }
+
+        .status.error {
+            background: rgba(255, 59, 92, 0.15);
+            color: #ff3b5c;
+            border: 1px solid rgba(255, 59, 92, 0.3);
+        }
+
+        .help-info {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #b8d4ff;
+        }
+
+        .help-info strong {
+            color: #ffffff;
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .help-info a {
+            color: #4A9EFF;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .help-info a:hover {
+            text-decoration: underline;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            margin: 16px 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px 12px;
+            }
+
+            .settings-card {
+                padding: 20px 16px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="settings-card">
+            <div class="header">
+                <div class="header-content">
+                    <img src="imgs/icon_shiny.png" alt="Orion Icon">
+                    <h1>Orion Settings</h1>
+                </div>
+                <p>Configure your extension preferences</p>
+            </div>
+
+            <div class="help-info">
+                <strong>Server Configuration</strong>
+                Make sure your Orion server is running and accessible.
+                <a href="https://github.com/Thomioo/Orion#setup" target="_blank">View setup guide</a>
+            </div>
+
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="serverHost">Server Host</label>
+                    <input type="text" id="serverHost" placeholder="192.168.1.100 or localhost" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="serverPort">Server Port</label>
+                    <input type="number" id="serverPort" placeholder="8000" min="1" max="65535" required>
+                </div>
+                <div class="divider"></div>
+
+                <div class="form-group">
+                    <label>Sidebar Options</label>
+                    <div class="checkbox-group" onclick="document.getElementById('resizableSidebar').click()">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="resizableSidebar">
+                        </div>
+                        <div>
+                            <div class="checkbox-label">Enable resizable sidebar</div>
+                            <div class="checkbox-description">Allow dragging the sidebar edge to resize</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Save Settings</button>
+
+                <div class="status" id="status"></div>
+            </form>
+        </div>
+    </div>
+    <script src="settings.js"></script>
+</body>
+
+</html>
