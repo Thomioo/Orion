@@ -443,11 +443,8 @@
 
                 <!-- Action Buttons -->
                 <button type="submit" class="btn-primary">Save Settings</button>
-
-                <div class="button-group">
-                    <button type="button" class="btn-secondary" onclick="restartServer()">Restart Server</button>
-                    <button type="button" class="btn-danger" onclick="confirmClearHistory()">Clear History</button>
-                </div>
+                <button type="button" class="btn-danger" onclick="confirmClearHistory()" style="margin-top: 8px;">Clear
+                    History</button>
 
                 <div class="status" id="status"></div>
             </form>
@@ -559,12 +556,6 @@
             setTimeout(() => {
                 statusEl.classList.remove('show');
             }, 3000);
-        }
-
-        function restartServer() {
-            showStatus('Server restart feature not yet implemented', 'info');
-            // Note: Server restart would require additional implementation
-            // to gracefully shut down and restart the Go server
         }
 
         function confirmClearHistory() {

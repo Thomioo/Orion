@@ -384,6 +384,48 @@
             "from": "phone",
             "type": "text",
             "content": "ahoj"
+        },
+        {
+            "id": "item_1752099710932304400",
+            "timestamp": "2025-07-10T00:21:50.9323044+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "ahoj"
+        },
+        {
+            "id": "item_1752099712619180900",
+            "timestamp": "2025-07-10T00:21:52.6191809+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "jak se ams"
+        },
+        {
+            "id": "item_1752099717804482000",
+            "timestamp": "2025-07-10T00:21:57.804482+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "eee"
+        },
+        {
+            "id": "item_1752099719799795100",
+            "timestamp": "2025-07-10T00:21:59.7997951+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "u"
+        },
+        {
+            "id": "item_1752099720139071700",
+            "timestamp": "2025-07-10T00:22:00.1390717+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "u"
+        },
+        {
+            "id": "item_1752099720355633900",
+            "timestamp": "2025-07-10T00:22:00.3556339+02:00",
+            "from": "PC",
+            "type": "text",
+            "content": "u"
         }
     ]
 }
