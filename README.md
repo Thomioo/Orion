@@ -91,18 +91,6 @@ Right-click the extension icon → Options
 - **Server Port**: Match your server port
 - **Resizable Sidebar**: Enable/disable sidebar resizing
 
-## 🔧 Advanced Usage
-
-### Custom Server Configuration
-
-```bash
-# Run on specific port
-./orion --port 9000
-
-# Run with custom host
-./orion --host 192.168.1.100
-```
-
 ### Network Access
 
 **Local Network**: Orion works on your local network (WiFi/Ethernet)
