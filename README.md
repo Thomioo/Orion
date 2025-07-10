@@ -2,7 +2,7 @@
 
 Orion is a sleek, real-time communication bridge between your PC and mobile devices. Share messages, files, and YouTube video timestamps instantly across your devices with a beautiful, modern interface.
 
-![Orion Logo](icon.png)
+![Orion Logo](icon.ico)
 
 ## ✨ Features
 
