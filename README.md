@@ -80,7 +80,7 @@ Access settings at: `http://[your-ip]:8000/settings/`
 **Available Options**:
 - **Server Host**: Set custom IP address (auto-detects by default)
 - **Server Port**: Change port (default: 8000)
-- **Data Retention**: How long to keep message history (default: 30 days)
+- **Data Retention**: How long to keep message history (default: 30 days, set to 0 for never deleting)
 
 ### Extension Settings
 
