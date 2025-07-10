@@ -456,6 +456,12 @@
 
             // Process items if they exist
             if (data.items && data.items.length > 0) {
+                // Clear empty state if it exists and we have messages
+                const emptyState = conversation.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+
                 // Only add new messages (skip already displayed ones)
                 const newMessages = data.items.slice(lastMessageCount);
 

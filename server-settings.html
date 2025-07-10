@@ -416,7 +416,7 @@
             <div class="help-info">
                 <strong>Server Configuration</strong>
                 Changes will take effect after server restart.
-                <a href="#" onclick="alert('Documentation not yet available')">View documentation</a>
+                <a href="https://github.com/Thomioo/Orion" target="_blank">View documentation</a>
             </div>
 
             <form id="settingsForm">
@@ -436,7 +436,9 @@
                 <!-- Data Management -->
                 <div class="form-group">
                     <label for="dataRetention">Data Retention (days)</label>
-                    <input type="number" id="dataRetention" value="30" min="1" max="365" required>
+                    <input type="number" id="dataRetention" value="30" min="0" max="365" required>
+                    <small style="color:#aaa;display:block;margin-top:4px;">Set to <b>0</b> to never delete files
+                        automatically.</small>
                 </div>
 
                 <div class="divider"></div>
@@ -500,7 +502,8 @@
         function populateForm(settings) {
             document.getElementById('serverHost').value = settings.serverHost || '';
             document.getElementById('serverPort').value = settings.serverPort || '8000';
-            document.getElementById('dataRetention').value = settings.dataRetention || 30;
+            // Allow 0 for never delete
+            document.getElementById('dataRetention').value = (typeof settings.dataRetention === 'number') ? settings.dataRetention : 30;
         }
 
         // Update server status display
@@ -600,7 +603,7 @@
             };
 
             // Validate settings
-            if (!settings.serverPort || settings.dataRetention < 1) {
+            if (!settings.serverPort || settings.dataRetention < 0) {
                 showStatus('Please fill in all required fields with valid values', 'error');
                 return;
             }

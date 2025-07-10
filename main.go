@@ -192,9 +192,10 @@ type YouTubeVideoInfo struct {
 
 // Server settings structure
 type ServerSettings struct {
-	ServerHost    string `json:"serverHost"`
-	ServerPort    string `json:"serverPort"`
-	DataRetention int    `json:"dataRetention"`
+	ServerHost string `json:"serverHost"`
+	ServerPort string `json:"serverPort"`
+	// DataRetention: number of days to keep files; 0 means never delete
+	DataRetention int `json:"dataRetention"`
 }
 
 // Server status structure
@@ -224,7 +225,7 @@ func getDefaultSettings() ServerSettings {
 	return ServerSettings{
 		ServerHost:    "",
 		ServerPort:    "8000",
-		DataRetention: 30,
+		DataRetention: 30, // 0 means never delete
 	}
 }
 
@@ -657,13 +658,10 @@ func handlePCWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Handle messages and pings
 	go func() {
 		defer conn.Close()
-		for {
-			select {
-			case <-ticker.C:
-				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					fmt.Printf("[DEBUG] PC WebSocket ping failed: %v\n", err)
-					return
-				}
+		for range ticker.C {
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				fmt.Printf("[DEBUG] PC WebSocket ping failed: %v\n", err)
+				return
 			}
 		}
 	}()
@@ -722,13 +720,10 @@ func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Handle messages and pings
 	go func() {
 		defer conn.Close()
-		for {
-			select {
-			case <-ticker.C:
-				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					fmt.Printf("[DEBUG] Mobile WebSocket ping failed: %v\n", err)
-					return
-				}
+		for range ticker.C {
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				fmt.Printf("[DEBUG] Mobile WebSocket ping failed: %v\n", err)
+				return
 			}
 		}
 	}()
@@ -1014,7 +1009,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Validate settings
-		if newSettings.ServerPort == "" || newSettings.DataRetention < 1 {
+		if newSettings.ServerPort == "" || newSettings.DataRetention < 0 {
 			http.Error(w, "Invalid settings values", http.StatusBadRequest)
 			return
 		}
