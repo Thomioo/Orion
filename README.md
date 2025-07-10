@@ -100,27 +100,6 @@ Right-click the extension icon → Options
 
 **Firewall**: Ensure port 8000 (or your custom port) is open for local network access
 
-## 🎯 Use Cases
-
-### 📚 Study & Research
-- Share research links and files between devices
-- Continue reading on mobile where you left off on PC
-- Quick note-taking across devices
-
-### 💼 Work & Productivity
-- Transfer files without cloud services
-- Share meeting links and documents
-- Seamless device switching during presentations
-
-### 🎮 Entertainment
-- Share YouTube videos with exact timestamps
-- Transfer media files for offline viewing
-- Coordinate viewing parties with friends
-
-### 🏠 Daily Life
-- Share photos and documents between devices
-- Quick file transfers without cables or cloud
-- Keep shopping lists and notes synchronized
 
 ## 🛠️ Troubleshooting
 
