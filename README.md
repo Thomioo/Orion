@@ -176,8 +176,4 @@ If you encounter any issues or have questions:
 
 Orion makes cross-device communication effortless and beautiful. Whether you're sharing a quick message, transferring important files, or coordinating YouTube viewing sessions, Orion keeps your devices perfectly in sync.
 
-**Happy sharing!** 🚀✨
-
 ---
-
-*Made with ❤️ for seamless device connectivity*
