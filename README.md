@@ -1,7 +1,7 @@
 
 # 🌟 Orion - Cross-Device Message & File Sharing
 
-> **Note:** Orion is still in active development. You may encounter glitches or unexpected behavior, especially on some websites. If you run into any issues, please leave an issue on GitHub so we can improve the project!
+> **Note:** Orion is still in "active" development. You may encounter glitches or unexpected behavior, especially on some websites. If you run into any issues, please leave an issue on GitHub so we can improve the project!
 
 Orion is a sleek, real-time communication bridge between your PC and mobile devices. Share messages, files, and YouTube video timestamps instantly across your devices with a beautiful, modern interface.
 
