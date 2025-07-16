@@ -712,6 +712,16 @@ func handleMobileWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error sending initial data to mobile WebSocket: %v", err)
 		return
 	}
+	// If there is a current YouTube video playing, send it to the new mobile connection
+	if latestYouTubeVideoInfo != nil && latestYouTubeVideoInfo.IsPlaying {
+		err = conn.WriteJSON(map[string]interface{}{
+			"type": "youtube_info",
+			"data": latestYouTubeVideoInfo,
+		})
+		if err != nil {
+			log.Printf("Error sending YouTube info to new mobile WebSocket: %v", err)
+		}
+	}
 
 	// Start ping ticker
 	ticker := time.NewTicker(30 * time.Second)
@@ -895,6 +905,12 @@ func (cm *ConnectionManager) BroadcastYouTubeInfo(videoInfo YouTubeVideoInfo) {
 	}
 }
 
+// Store the latest YouTube video info in memory
+var latestYouTubeVideoInfo *YouTubeVideoInfo = nil
+var latestYouTubeVideoInfoTimer *time.Timer = nil
+
+const youtubeInfoTimeout = 10 * time.Minute
+
 var connectionManager = NewConnectionManager()
 
 func main() {
@@ -979,8 +995,18 @@ func handleYouTubeInfo(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("[DEBUG] YouTube info: Received video info - Title: '%s', VideoID: '%s', CurrentTime: %d\n",
 		videoInfo.Title, videoInfo.VideoID, videoInfo.CurrentTime)
 
-	// Broadcast YouTube video info to mobile connections only
+	// Store the latest video info in memory
+	latestYouTubeVideoInfo = &videoInfo
 	go connectionManager.BroadcastYouTubeInfo(videoInfo)
+
+	// Reset the timeout timer
+	if latestYouTubeVideoInfoTimer != nil {
+		latestYouTubeVideoInfoTimer.Stop()
+	}
+	latestYouTubeVideoInfoTimer = time.AfterFunc(youtubeInfoTimeout, func() {
+		latestYouTubeVideoInfo = nil
+		fmt.Printf("[DEBUG] YouTube info: Cleared due to timeout (no update for %v)\n", youtubeInfoTimeout)
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
