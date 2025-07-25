@@ -223,49 +223,70 @@ var (
 // Get default server settings
 func getDefaultSettings() ServerSettings {
 	return ServerSettings{
-		ServerHost:    "",
-		ServerPort:    "8000",
-		DataRetention: 30, // 0 means never delete
+		ServerHost:    "localhost",
+		ServerPort:    "8888",
+		DataRetention: 0, // 0 means never delete
 	}
 }
 
 // Load server settings from file
 func loadSettings() ServerSettings {
+	// On Windows, use embedded settings file
 	var settings ServerSettings
-
 	if _, err := os.Stat(settingsFile); os.IsNotExist(err) {
 		fmt.Printf("[DEBUG] Settings file doesn't exist, using defaults\n")
 		return getDefaultSettings()
 	}
-
 	fmt.Printf("[DEBUG] Loading settings from file: %s\n", settingsFile)
 	fileData, err := os.ReadFile(settingsFile)
 	if err != nil {
 		fmt.Printf("[ERROR] Error reading settings file: %v\n", err)
 		return getDefaultSettings()
 	}
-
 	err = json.Unmarshal(fileData, &settings)
 	if err != nil {
 		fmt.Printf("[ERROR] Error parsing settings JSON: %v\n", err)
 		return getDefaultSettings()
 	}
-
 	fmt.Printf("[DEBUG] Settings loaded successfully\n")
+	return settings
+}
+
+// Load server settings from config.json (for non-Windows)
+func loadConfigSettings(configPath string) ServerSettings {
+	var settings ServerSettings
+	fileData, err := os.ReadFile(configPath)
+	if err != nil {
+		fmt.Printf("[ERROR] Error reading config.json: %v\n", err)
+		return getDefaultSettings()
+	}
+	err = json.Unmarshal(fileData, &settings)
+	if err != nil {
+		fmt.Printf("[ERROR] Error parsing config.json: %v\n", err)
+		return getDefaultSettings()
+	}
+	fmt.Printf("[DEBUG] Config loaded from %s\n", configPath)
 	return settings
 }
 
 // Save server settings to file
 func saveSettings(settings ServerSettings) error {
-	// Ensure memory directory exists
-	os.MkdirAll("memory", 0755)
-
-	jsonData, err := json.MarshalIndent(settings, "", "    ")
-	if err != nil {
-		return err
+	// On Windows, save to settingsFile
+	if runtime.GOOS == "windows" {
+		os.MkdirAll("memory", 0755)
+		jsonData, err := json.MarshalIndent(settings, "", "    ")
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(settingsFile, jsonData, 0644)
+	} else {
+		// On non-Windows, save to config.json
+		jsonData, err := json.MarshalIndent(settings, "", "    ")
+		if err != nil {
+			return err
+		}
+		return os.WriteFile("config.json", jsonData, 0644)
 	}
-
-	return os.WriteFile(settingsFile, jsonData, 0644)
 }
 
 // Load data from file
@@ -917,6 +938,23 @@ func main() {
 	if runtime.GOOS == "windows" {
 		systray.Run(onReady, onExit)
 	} else {
+		// On non-Windows, use config.json for settings
+		configPath := "config.json"
+		// If config.json does not exist, create it with defaults
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			defaultConfig := getDefaultSettings()
+			jsonData, err := json.MarshalIndent(defaultConfig, "", "    ")
+			if err == nil {
+				os.WriteFile(configPath, jsonData, 0644)
+				fmt.Printf("[INFO] Created default config.json\n")
+			} else {
+				fmt.Printf("[ERROR] Could not create config.json: %v\n", err)
+			}
+		}
+		// Load settings from config.json
+		serverSettings = loadConfigSettings(configPath)
+		// Use port from settings
+		serverPort = serverSettings.ServerPort
 		startServer()
 	}
 }
