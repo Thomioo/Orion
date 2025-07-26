@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getlantern/systray"
 	"github.com/gorilla/websocket"
 )
 
@@ -92,46 +91,6 @@ func startServer() {
 	http.HandleFunc("/imgs/", corsMiddleware(handleMobileAssets))
 
 	// WebSocket endpoints
-	http.HandleFunc("/pc/ws", corsMiddleware(handlePCWebSocket))
-	http.HandleFunc("/mobile/ws", corsMiddleware(handleMobileWebSocket))
-
-	// PC endpoints
-	http.HandleFunc("/pc/items", corsMiddleware(handlePCItems))
-	http.HandleFunc("/pc/message", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		handleMessage(w, r, "PC")
-	}))
-	http.HandleFunc("/pc/file", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		handleFile(w, r, "PC")
-	}))
-	http.HandleFunc("/pc/youtube-info", corsMiddleware(handleYouTubeInfo))
-
-	// Mobile endpoints
-	http.HandleFunc("/mobile/items", corsMiddleware(handleMobileItems))
-	http.HandleFunc("/mobile/message", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		handleMessage(w, r, "phone")
-	}))
-	http.HandleFunc("/mobile/file", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		handleFile(w, r, "phone")
-	}))
-
-	// Server settings endpoints
-	http.HandleFunc("/settings", corsMiddleware(handleServerSettings))
-	http.HandleFunc("/settings/", corsMiddleware(handleServerSettingsPage))
-	http.HandleFunc("/status", corsMiddleware(handleServerStatus))
-	http.HandleFunc("/clear-history", corsMiddleware(handleClearHistory))
-	http.HandleFunc("/favicon.ico", corsMiddleware(handleFavicon))
-
-	fmt.Printf("[INFO] Server starting on http://%s:%s\n", serverHost, serverPort)
-
-	// Start the server
-	if err := http.ListenAndServe(serverHost+":"+serverPort, nil); err != nil {
-		fmt.Printf("[ERROR] Server failed to start on %s:%s: %v\n", serverHost, serverPort, err)
-		fmt.Printf("[INFO] Try closing other applications using port %s and restart\n", serverPort)
-	}
-}
-
-func getLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return ""
 	}
@@ -939,31 +898,7 @@ var connectionManager = NewConnectionManager()
 
 func main() {
 	if runtime.GOOS == "windows" {
-		systray.Run(func() {
-			systray.SetIcon(iconData)
-			systray.SetTitle("Orion")
-			systray.SetTooltip("Orion is running")
-
-			mSettings := systray.AddMenuItem("Settings", "Open server settings")
-			mQuit := systray.AddMenuItem("Quit", "Exit the app")
-
-			go func() {
-				for {
-					select {
-					case <-mSettings.ClickedCh:
-						url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
-						openURL(url)
-					case <-mQuit.ClickedCh:
-						systray.Quit()
-						os.Exit(0)
-					}
-				}
-			}()
-
-			go startServer()
-		}, func() {
-			// Optional: cleanup code
-		})
+		runSystray()
 	} else {
 		// On non-Windows, just run the server as CLI
 		configPath := "config.json"
@@ -983,30 +918,47 @@ func main() {
 	}
 }
 
-// openURL opens the specified URL in the default browser
-func openURL(url string) {
-	var cmd string
-	var args []string
+// Windows-only systray code
+//go:build windows
+// +build windows
+package main
 
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start", url}
-	case "darwin":
-		cmd = "open"
-		args = []string{url}
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
-		args = []string{url}
-	}
+import (
+	"fmt"
+	"github.com/getlantern/systray"
+	"os"
+	"runtime"
+	"os/exec"
+)
 
-	err := exec.Command(cmd, args...).Start()
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to open URL %s: %v\n", url, err)
-	} else {
-		fmt.Printf("[INFO] Opened settings page: %s\n", url)
-	}
+func runSystray() {
+	systray.Run(func() {
+		systray.SetIcon(iconData)
+		systray.SetTitle("Orion")
+		systray.SetTooltip("Orion is running")
+
+		mSettings := systray.AddMenuItem("Settings", "Open server settings")
+		mQuit := systray.AddMenuItem("Quit", "Exit the app")
+
+		go func() {
+			for {
+				select {
+				case <-mSettings.ClickedCh:
+					url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
+					openURL(url)
+				case <-mQuit.ClickedCh:
+					systray.Quit()
+					os.Exit(0)
+				}
+			}
+		}()
+
+		go startServer()
+	}, func() {
+		// Optional: cleanup code
+	})
 }
+
 
 // Handle YouTube video info from PC
 func handleYouTubeInfo(w http.ResponseWriter, r *http.Request) {
