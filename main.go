@@ -1,3 +1,6 @@
+//go:build windows || linux || darwin
+// +build windows linux darwin
+
 package main
 
 import (
@@ -936,11 +939,34 @@ var connectionManager = NewConnectionManager()
 
 func main() {
 	if runtime.GOOS == "windows" {
-		systray.Run(onReady, onExit)
+		systray.Run(func() {
+			systray.SetIcon(iconData)
+			systray.SetTitle("Orion")
+			systray.SetTooltip("Orion is running")
+
+			mSettings := systray.AddMenuItem("Settings", "Open server settings")
+			mQuit := systray.AddMenuItem("Quit", "Exit the app")
+
+			go func() {
+				for {
+					select {
+					case <-mSettings.ClickedCh:
+						url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
+						openURL(url)
+					case <-mQuit.ClickedCh:
+						systray.Quit()
+						os.Exit(0)
+					}
+				}
+			}()
+
+			go startServer()
+		}, func() {
+			// Optional: cleanup code
+		})
 	} else {
-		// On non-Windows, use config.json for settings
+		// On non-Windows, just run the server as CLI
 		configPath := "config.json"
-		// If config.json does not exist, create it with defaults
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			defaultConfig := getDefaultSettings()
 			jsonData, err := json.MarshalIndent(defaultConfig, "", "    ")
@@ -951,41 +977,10 @@ func main() {
 				fmt.Printf("[ERROR] Could not create config.json: %v\n", err)
 			}
 		}
-		// Load settings from config.json
 		serverSettings = loadConfigSettings(configPath)
-		// Use port from settings
 		serverPort = serverSettings.ServerPort
 		startServer()
 	}
-}
-
-func onReady() {
-	systray.SetIcon(iconData)
-	systray.SetTitle("Orion")
-	systray.SetTooltip("Orion is running")
-
-	mSettings := systray.AddMenuItem("Settings", "Open server settings")
-	mQuit := systray.AddMenuItem("Quit", "Exit the app")
-
-	go func() {
-		for {
-			select {
-			case <-mSettings.ClickedCh:
-				// Open settings page in default browser
-				url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
-				openURL(url)
-			case <-mQuit.ClickedCh:
-				systray.Quit()
-				os.Exit(0)
-			}
-		}
-	}()
-
-	go startServer()
-}
-
-func onExit() {
-	// Optional: cleanup code
 }
 
 // openURL opens the specified URL in the default browser
