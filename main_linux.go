@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !windows
 
 package main
 
@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getlantern/systray"
 	"github.com/gorilla/websocket"
 )
 
@@ -916,35 +915,12 @@ const youtubeInfoTimeout = 10 * time.Minute
 var connectionManager = NewConnectionManager()
 
 func main() {
-	if runtime.GOOS == "windows" {
-		systray.Run(onReady, onExit)
-	} else {
-		startServer()
-	}
+	// On Linux and other OSes, just run as CLI (no systray, no noconsole)
+	fmt.Println("[INFO] Orion server running as CLI app (no systray)")
+	startServer()
 }
 
 func onReady() {
-	systray.SetIcon(iconData)
-	systray.SetTitle("Orion")
-	systray.SetTooltip("Orion is running")
-
-	mSettings := systray.AddMenuItem("Settings", "Open server settings")
-	mQuit := systray.AddMenuItem("Quit", "Exit the app")
-
-	go func() {
-		for {
-			select {
-			case <-mSettings.ClickedCh:
-				// Open settings page in default browser
-				url := fmt.Sprintf("http://%s:%s/settings/", getCurrentServerHost(), serverPort)
-				openURL(url)
-			case <-mQuit.ClickedCh:
-				systray.Quit()
-				os.Exit(0)
-			}
-		}
-	}()
-
 	go startServer()
 }
 
@@ -952,7 +928,6 @@ func onExit() {
 	// Optional: cleanup code
 }
 
-// openURL opens the specified URL in the default browser
 func openURL(url string) {
 	var cmd string
 	var args []string
