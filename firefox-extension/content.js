@@ -85,12 +85,13 @@ function startYouTubeTimeTracking() {
             // Log initial time
             logVideoTime(videoElement);
 
-            // Set up periodic time logging (every 1 second for real-time updates)
+            // Set up periodic time logging (every 3 seconds to reduce load)
             const timeLogger = setInterval(() => {
-                if (document.querySelector('video') === videoElement && !videoElement.paused) {
+                if (document.querySelector('video') === videoElement) {
+                    // Send updates whether paused or playing to keep mobile in sync
                     logVideoTime(videoElement);
                 }
-            }, 1000);
+            }, 1000); // Reduced frequency to every 1 second
 
             // Log time when video is paused/played
             videoElement.addEventListener('pause', () => {
@@ -100,6 +101,11 @@ function startYouTubeTimeTracking() {
 
             videoElement.addEventListener('play', () => {
                 // console.log('Video resumed');
+                logVideoTime(videoElement);
+            });
+
+            // Also send update when seeking
+            videoElement.addEventListener('seeked', () => {
                 logVideoTime(videoElement);
             });
 
@@ -155,7 +161,7 @@ function logVideoTime(videoElement) {
     const timestampLink = createYouTubeTimestampLink(window.location.href, timeInSeconds);
 
     // console.log(`YouTube Video Link: ${timestampLink}`);
-    console.log(`YouTube Video Time - Elapsed: ${timeElapsed} / ${totalDuration} (${percentComplete}%)`);
+    // console.log(`YouTube Video Time - Elapsed: ${timeElapsed} / ${totalDuration} (${percentComplete}%)`);
 
     // Send YouTube video info to server for mobile notification
     sendYouTubeVideoInfo(videoElement, timestampLink);
@@ -165,12 +171,26 @@ function sendYouTubeVideoInfo(videoElement, timestampLink) {
     const videoId = extractYouTubeVideoId(window.location.href);
     if (!videoId) return;
 
-    // Get video title from page
-    const videoTitle = document.querySelector('h1.ytd-video-primary-info-renderer') ||
-        document.querySelector('h1.title') ||
-        document.querySelector('title');
-
-    const title = videoTitle ? videoTitle.textContent.trim() : 'YouTube Video';
+    // Get video title from page - try multiple selectors for better compatibility
+    let title = 'YouTube Video';
+    
+    // Try modern YouTube layout
+    const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+                        document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+                        document.querySelector('h1 yt-formatted-string') ||
+                        document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer') ||
+                        document.querySelector('#title h1') ||
+                        document.querySelector('h1.title');
+    
+    if (titleElement) {
+        title = titleElement.textContent.trim();
+    } else {
+        // Fallback: try to get from page title and remove " - YouTube"
+        const pageTitle = document.title;
+        if (pageTitle && pageTitle !== 'YouTube') {
+            title = pageTitle.replace(/ - YouTube$/, '').trim();
+        }
+    }
 
     const videoInfo = {
         videoId: videoId,
