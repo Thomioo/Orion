@@ -1,25 +1,64 @@
 // Prevent multiple executions of content script
 if (window.orionContentScriptLoaded) {
-    console.log('Content script already loaded, skipping');
+    // console.log('Content script already loaded, skipping');
 } else {
     window.orionContentScriptLoaded = true;
-    console.log('Orion content script loaded');
+    // console.log('Orion content script loaded');
 
     // Check if current page is a YouTube video and start monitoring
     checkYouTubeVideo();
+
+    // Monitor for URL changes (YouTube is a single-page app)
+    let lastUrl = window.location.href;
+    const urlObserver = new MutationObserver(() => {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+            // console.log('URL changed from', lastUrl, 'to', currentUrl);
+            lastUrl = currentUrl;
+            checkYouTubeVideo();
+        }
+    });
+
+    // Observe changes to the document body (YouTube updates the DOM on navigation)
+    urlObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // Also listen for history state changes
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = function () {
+        originalPushState.apply(this, arguments);
+        // console.log('History pushState detected');
+        checkYouTubeVideo();
+    };
+
+    history.replaceState = function () {
+        originalReplaceState.apply(this, arguments);
+        // console.log('History replaceState detected');
+        checkYouTubeVideo();
+    };
+
+    // Listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', () => {
+        // console.log('Popstate event detected');
+        checkYouTubeVideo();
+    });
 }
 
 // YouTube video detection and time tracking
 function checkYouTubeVideo() {
     const currentUrl = window.location.href;
-    console.log('Current URL:', currentUrl);
+    // console.log('Current URL:', currentUrl);
 
     // Check if URL is a YouTube video
     if (isYouTubeVideoUrl(currentUrl)) {
-        console.log('YouTube video detected!');
+        // console.log('YouTube video detected!');
         startYouTubeTimeTracking();
     } else {
-        console.log('Not a YouTube video URL');
+        // console.log('Not a YouTube video URL');
     }
 }
 
@@ -33,14 +72,14 @@ function isYouTubeVideoUrl(url) {
 }
 
 function startYouTubeTimeTracking() {
-    console.log('Starting YouTube time tracking...');
+    // console.log('Starting YouTube time tracking...');
 
     // Wait for video element to load
     const checkForVideo = setInterval(() => {
         const videoElement = document.querySelector('video');
 
         if (videoElement) {
-            console.log('YouTube video element found');
+            // console.log('YouTube video element found');
             clearInterval(checkForVideo);
 
             // Log initial time
@@ -55,12 +94,12 @@ function startYouTubeTimeTracking() {
 
             // Log time when video is paused/played
             videoElement.addEventListener('pause', () => {
-                console.log('Video paused');
+                // console.log('Video paused');
                 logVideoTime(videoElement);
             });
 
             videoElement.addEventListener('play', () => {
-                console.log('Video resumed');
+                // console.log('Video resumed');
                 logVideoTime(videoElement);
             });
 
@@ -115,7 +154,7 @@ function logVideoTime(videoElement) {
     const timeInSeconds = Math.floor(currentTime);
     const timestampLink = createYouTubeTimestampLink(window.location.href, timeInSeconds);
 
-    console.log(`YouTube Video Link: ${timestampLink}`);
+    // console.log(`YouTube Video Link: ${timestampLink}`);
     console.log(`YouTube Video Time - Elapsed: ${timeElapsed} / ${totalDuration} (${percentComplete}%)`);
 
     // Send YouTube video info to server for mobile notification
@@ -143,16 +182,16 @@ function sendYouTubeVideoInfo(videoElement, timestampLink) {
         url: window.location.href
     };
 
-    console.log('Sending YouTube video info:', videoInfo);
+    // console.log('Sending YouTube video info:', videoInfo);
 
     // Send to background script to forward to server
     browser.runtime.sendMessage({
         type: 'youtube-video-info',
         videoInfo: videoInfo
     }).then(response => {
-        console.log('YouTube video info sent successfully:', response);
+        // console.log('YouTube video info sent successfully:', response);
     }).catch(err => {
-        console.error('Error sending YouTube video info:', err);
+        // console.error('Error sending YouTube video info:', err);
     });
 }
 
@@ -164,11 +203,11 @@ function createYouTubeTimestampLink(currentUrl, timeInSeconds) {
         if (videoId) {
             return `https://youtu.be/${videoId}?t=${timeInSeconds}`;
         } else {
-            console.error('Could not extract video ID from URL:', currentUrl);
+            // console.error('Could not extract video ID from URL:', currentUrl);
             return currentUrl;
         }
     } catch (error) {
-        console.error('Error creating timestamp link:', error);
+        // console.error('Error creating timestamp link:', error);
         return currentUrl;
     }
 }
@@ -193,12 +232,12 @@ function extractYouTubeVideoId(url) {
     for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match && match[1]) {
-            console.log(`Extracted video ID: ${match[1]} from URL: ${url}`);
+            // console.log(`Extracted video ID: ${match[1]} from URL: ${url}`);
             return match[1];
         }
     }
 
-    console.error(`Could not extract video ID from URL: ${url}`);
+    // console.error(`Could not extract video ID from URL: ${url}`);
     return null;
 }
 
@@ -220,7 +259,7 @@ function formatTime(seconds) {
 browser.runtime.onMessage.addListener((msg) => {
     // Handle WebSocket data from background script
     if (msg.type === 'websocket-data') {
-        console.log('Received WebSocket data from background script:', msg.data);
+        // console.log('Received WebSocket data from background script:', msg.data);
 
         if (msg.data.type === 'initial' || msg.data.type === 'update') {
             displayConversationData(msg.data.data);
@@ -230,14 +269,14 @@ browser.runtime.onMessage.addListener((msg) => {
 
     // Handle WebSocket status updates from background script
     if (msg.type === 'websocket-status') {
-        console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
+        // console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
         websocketConnected = msg.connected;
 
         if (!msg.connected) {
             if (msg.error || msg.errorMessage) {
-                console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
+                // console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
             }
-            console.log('WebSocket disconnected, relying on HTTP for updates');
+            // console.log('WebSocket disconnected, relying on HTTP for updates');
             // The background script handles reconnection attempts
         }
         return;
@@ -254,13 +293,17 @@ browser.runtime.onMessage.addListener((msg) => {
                 .then(html => {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    const bodyContent = doc.body.innerHTML;
 
                     // Add resize handle (will be conditionally enabled later)
-                    sidebar.innerHTML = `
-                        <div id="sleek-sidebar-resize-handle" style="display: none;"></div>
-                        ${bodyContent}
-                    `;
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.id = 'sleek-sidebar-resize-handle';
+                    resizeHandle.style.display = 'none';
+                    sidebar.appendChild(resizeHandle);
+
+                    // Safely append body content from parsed document
+                    Array.from(doc.body.childNodes).forEach(node => {
+                        sidebar.appendChild(node.cloneNode(true));
+                    });
                     const styleTag = doc.querySelector('style');
                     if (styleTag) {
                         // More comprehensive CSS scoping to prevent conflicts
@@ -456,7 +499,7 @@ browser.runtime.onMessage.addListener((msg) => {
 
 // Sidebar functionality
 function setupSidebarFunctionality() {
-    console.log('Setting up sidebar functionality');
+    // console.log('Setting up sidebar functionality');
 
     // Load conversation data
     loadConversation();
@@ -474,14 +517,14 @@ function setupSidebarFunctionality() {
     browser.runtime.sendMessage({ type: 'get-settings' })
         .then(response => {
             if (response.success && response.settings.resizableSidebar) {
-                console.log('Resizable sidebar enabled in settings');
+                // console.log('Resizable sidebar enabled in settings');
                 setupSidebarResize();
             } else {
-                console.log('Resizable sidebar disabled in settings');
+                // console.log('Resizable sidebar disabled in settings');
             }
         })
         .catch(err => {
-            console.error('Error getting settings, defaulting to resizable enabled:', err);
+            // console.error('Error getting settings, defaulting to resizable enabled:', err);
             // Default to enabled if we can't get settings
             setupSidebarResize();
         });
@@ -492,7 +535,7 @@ function setupScrollPrevention() {
     const conversation = document.getElementById('conversation');
 
     if (!sidebar || !conversation) {
-        console.error('Sidebar or conversation element not found for scroll prevention');
+        // console.error('Sidebar or conversation element not found for scroll prevention');
         return;
     }
 
@@ -535,41 +578,41 @@ let websocketConnected = false;
 
 function connectWebSocket() {
     if (websocketConnected) {
-        console.log('WebSocket already connected, skipping connection request');
+        // console.log('WebSocket already connected, skipping connection request');
         return;
     }
 
-    console.log('Requesting WebSocket connection via background script');
+    // console.log('Requesting WebSocket connection via background script');
 
     // Request WebSocket connection through background script
     browser.runtime.sendMessage({ type: 'connect-websocket' })
         .then(response => {
             if (response.success) {
-                console.log('WebSocket connection request sent to background script');
+                // console.log('WebSocket connection request sent to background script');
                 // Don't set websocketConnected here - wait for websocket-status message
             } else {
-                console.error('Failed to request WebSocket connection via background script');
+                // console.error('Failed to request WebSocket connection via background script');
                 loadConversationHTTP();
             }
         })
         .catch(err => {
-            console.error('Error requesting WebSocket connection:', err);
+            // console.error('Error requesting WebSocket connection:', err);
             loadConversationHTTP();
         });
 }
 
 function loadConversation() {
-    console.log('Loading conversation, WebSocket connected:', websocketConnected);
+    // console.log('Loading conversation, WebSocket connected:', websocketConnected);
 
     // Always load initial data via HTTP to ensure we have current conversation
     loadConversationHTTP();
 
     // Also establish/maintain WebSocket connection for real-time updates
     if (!websocketConnected) {
-        console.log('Establishing WebSocket connection for real-time updates');
+        // console.log('Establishing WebSocket connection for real-time updates');
         connectWebSocket();
     } else {
-        console.log('WebSocket already connected for real-time updates');
+        // console.log('WebSocket already connected for real-time updates');
     }
 }
 
@@ -579,17 +622,17 @@ function loadConversationHTTP() {
             if (response.success) {
                 try {
                     const data = JSON.parse(response.data);
-                    console.log('Loaded flow data via HTTP:', data);
+                    // console.log('Loaded flow data via HTTP:', data);
                     displayConversationData(data);
                 } catch (e) {
-                    console.error('Error parsing flow data:', e);
+                    // console.error('Error parsing flow data:', e);
                 }
             } else {
-                console.error('Error fetching conversation:', response.error);
+                // console.error('Error fetching conversation:', response.error);
             }
         })
         .catch(err => {
-            console.error('Error communicating with background script:', err);
+            // console.error('Error communicating with background script:', err);
         });
 }
 
@@ -612,7 +655,7 @@ function startPolling() {
 
 function stopPolling() {
     if (pollingInterval) {
-        console.log('Stopping HTTP polling');
+        // console.log('Stopping HTTP polling');
         clearInterval(pollingInterval);
         pollingInterval = null;
     }
@@ -621,7 +664,7 @@ function stopPolling() {
 function displayConversationData(data) {
     const conversationDiv = document.getElementById('conversation');
     if (!conversationDiv) {
-        console.error('Conversation div not found');
+        // console.error('Conversation div not found');
         return;
     }
 
@@ -651,10 +694,38 @@ function displayConversationData(data) {
             if (item.type === 'text') {
                 // Check if content contains URLs and make them clickable
                 const urlRegex = /(https?:\/\/[^\s]+)/g;
-                if (urlRegex.test(item.content)) {
-                    // Content has URLs, replace with clickable links
-                    const htmlContent = item.content.replace(urlRegex, '<a href="$1" target="_blank" style="color: #4A9EFF; text-decoration: underline;">$1</a>');
-                    messageDiv.innerHTML = htmlContent;
+                const urls = item.content.match(urlRegex);
+
+                if (urls) {
+                    // Content has URLs, safely create text nodes and link elements
+                    let lastIndex = 0;
+                    const fragment = document.createDocumentFragment();
+
+                    item.content.replace(urlRegex, (match, url, offset) => {
+                        // Add text before the URL
+                        if (offset > lastIndex) {
+                            fragment.appendChild(document.createTextNode(item.content.substring(lastIndex, offset)));
+                        }
+
+                        // Create link element
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.style.cssText = 'color: #4A9EFF; text-decoration: underline;';
+                        link.textContent = url;
+                        fragment.appendChild(link);
+
+                        lastIndex = offset + match.length;
+                        return match;
+                    });
+
+                    // Add remaining text after last URL
+                    if (lastIndex < item.content.length) {
+                        fragment.appendChild(document.createTextNode(item.content.substring(lastIndex)));
+                    }
+
+                    messageDiv.appendChild(fragment);
                 } else {
                     // No URLs, just set as text
                     messageDiv.textContent = item.content;
@@ -694,7 +765,10 @@ function displayConversationData(data) {
         // Scroll to bottom
         conversationDiv.scrollTop = conversationDiv.scrollHeight;
     } else {
-        conversationDiv.innerHTML = '<div style="color: #aaa; padding: 20px; text-align: center;">No messages yet</div>';
+        const noMessagesDiv = document.createElement('div');
+        noMessagesDiv.style.cssText = 'color: #aaa; padding: 20px; text-align: center;';
+        noMessagesDiv.textContent = 'No messages yet';
+        conversationDiv.appendChild(noMessagesDiv);
     }
 
     // Update QR code visibility based on conversation content
@@ -708,40 +782,40 @@ function setupIcons() {
         const orionIcon = document.getElementById('orionIcon');
         if (orionIcon) {
             const headerIconUrl = browser.runtime.getURL('imgs/icon_shiny.png');
-            console.log('Setting header icon URL:', headerIconUrl);
+            // console.log('Setting header icon URL:', headerIconUrl);
             orionIcon.src = headerIconUrl;
 
             orionIcon.onerror = function () {
-                console.log('Header icon failed to load');
+                // console.log('Header icon failed to load');
             };
 
             orionIcon.onload = function () {
-                console.log('Header icon loaded successfully');
+                // console.log('Header icon loaded successfully');
             };
         } else {
-            console.error('orionIcon element not found');
+            // console.error('orionIcon element not found');
         }
 
         // Set up attachment icon
         const attachIcon = document.getElementById('attachIcon');
         if (attachIcon) {
             const iconUrl = browser.runtime.getURL('imgs/attachment.png');
-            console.log('Setting attachment icon URL:', iconUrl);
+            // console.log('Setting attachment icon URL:', iconUrl);
             attachIcon.src = iconUrl;
 
             // Add error handling for image load
             attachIcon.onerror = function () {
-                console.log('Attachment image failed to load, falling back to emoji');
+                // console.log('Attachment image failed to load, falling back to emoji');
             };
 
             attachIcon.onload = function () {
-                console.log('Attachment image loaded successfully');
+                // console.log('Attachment image loaded successfully');
             };
         } else {
-            console.error('attachIcon element not found');
+            // console.error('attachIcon element not found');
         }
     } else {
-        console.error('browser.runtime not available');
+        // console.error('browser.runtime not available');
     }
 }
 
@@ -758,12 +832,12 @@ function setupAttachButton() {
 
         fileInput.addEventListener('change', function () {
             if (this.files.length > 0) {
-                console.log('File selected:', this.files[0].name);
+                // console.log('File selected:', this.files[0].name);
                 sendFile(this.files[0]);
             }
         });
     } else {
-        console.error('Attach button or file input not found');
+        // console.error('Attach button or file input not found');
     }
 
     // Set up input field functionality
@@ -775,7 +849,7 @@ function setupAttachButton() {
             }
         });
     } else {
-        console.error('Input field not found');
+        // console.error('Input field not found');
     }
 }
 
@@ -796,7 +870,7 @@ function generateQRCode(text, elementId) {
 }
 
 function setupQRCode() {
-    console.log('Setting up QR code');
+    // console.log('Setting up QR code');
 
     // Get server settings and generate QR code
     browser.runtime.sendMessage({ type: 'get-settings' })
@@ -823,10 +897,10 @@ function setupQRCode() {
                 qrUrlElement.textContent = mobileUrl;
             }
 
-            console.log('QR code set up for URL:', mobileUrl);
+            // console.log('QR code set up for URL:', mobileUrl);
         })
         .catch(error => {
-            console.error('Error setting up QR code:', error);
+            // console.error('Error setting up QR code:', error);
             // Fallback URL
             const fallbackUrl = 'http://192.168.2.101:8000/mobile';
             generateQRCode(fallbackUrl, 'qrCode');
@@ -843,7 +917,7 @@ function setupQRCode() {
     if (typeof browser !== 'undefined' && browser.storage) {
         browser.storage.onChanged.addListener(function (changes, namespace) {
             if (namespace === 'local' && changes.orionSettings) {
-                console.log('Settings changed, updating QR code');
+                // console.log('Settings changed, updating QR code');
                 setupQRCode();
             }
         });
@@ -855,7 +929,7 @@ function checkMessagesAndToggleQR() {
     const qrContainer = document.getElementById('qrContainer');
 
     if (!conversation || !qrContainer) {
-        console.log('Elements not found for QR toggle');
+        // console.log('Elements not found for QR toggle');
         return;
     }
 
@@ -872,28 +946,28 @@ function checkMessagesAndToggleQR() {
     if (hasRealMessages) {
         // Use direct style manipulation for higher specificity
         qrContainer.style.setProperty('display', 'none', 'important');
-        console.log('QR code hidden - messages present');
+        // console.log('QR code hidden - messages present');
     } else {
         // Show the QR container
         qrContainer.style.setProperty('display', 'flex', 'important');
-        console.log('QR code shown - no messages');
+        // console.log('QR code shown - no messages');
     }
 }
 
 function sendMessage() {
     const inputField = document.getElementById('inputField');
     if (!inputField) {
-        console.error('Input field not found');
+        // console.error('Input field not found');
         return;
     }
 
     const messageText = inputField.value.trim();
     if (!messageText) {
-        console.log('Empty message, not sending');
+        // console.log('Empty message, not sending');
         return;
     }
 
-    console.log('Sending message:', messageText);
+    // console.log('Sending message:', messageText);
 
     // Send message via background script
     browser.runtime.sendMessage({
@@ -902,21 +976,21 @@ function sendMessage() {
     })
         .then(response => {
             if (response.success) {
-                console.log('Message sent successfully:', response);
+                // console.log('Message sent successfully:', response);
                 inputField.value = ''; // Clear input field
-                console.log('Waiting for WebSocket update, connected:', websocketConnected);
+                // console.log('Waiting for WebSocket update, connected:', websocketConnected);
                 // WebSocket will handle the update automatically
             } else {
-                console.error('Error sending message:', response.error);
+                // console.error('Error sending message:', response.error);
             }
         })
         .catch(err => {
-            console.error('Error communicating with background script:', err);
+            // console.error('Error communicating with background script:', err);
         });
 }
 
 function sendFile(file) {
-    console.log('Sending file:', file.name);
+    // console.log('Sending file:', file.name);
 
     // Create FormData for file upload
     const formData = new FormData();
@@ -929,7 +1003,7 @@ function sendFile(file) {
     })
         .then(response => {
             if (response.success) {
-                console.log('File sent successfully:', response);
+                // console.log('File sent successfully:', response);
                 // Clear file input
                 const fileInput = document.getElementById('fileInput');
                 if (fileInput) {
@@ -937,16 +1011,16 @@ function sendFile(file) {
                 }
                 // WebSocket will handle the update automatically
             } else {
-                console.error('Error sending file:', response.error);
+                // console.error('Error sending file:', response.error);
             }
         })
         .catch(err => {
-            console.error('Error communicating with background script:', err);
+            // console.error('Error communicating with background script:', err);
         });
 }
 
 function downloadFile(uniqueFilename, displayName) {
-    console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
+    // console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
 
     // Use background script's download handler to avoid HTTP warnings
     browser.runtime.sendMessage({
@@ -956,13 +1030,13 @@ function downloadFile(uniqueFilename, displayName) {
     })
         .then(response => {
             if (response.success) {
-                console.log('File download started successfully, ID:', response.downloadId);
+                // console.log('File download started successfully, ID:', response.downloadId);
             } else {
-                console.error('Failed to start download:', response.error);
+                // console.error('Failed to start download:', response.error);
             }
         })
         .catch(err => {
-            console.error('Error communicating with background script for download:', err);
+            // console.error('Error communicating with background script for download:', err);
         });
 }
 
@@ -971,7 +1045,7 @@ function setupSidebarResize() {
     const resizeHandle = document.getElementById('sleek-sidebar-resize-handle');
 
     if (!sidebar || !resizeHandle) {
-        console.error('Sidebar or resize handle not found for resize functionality');
+        // console.error('Sidebar or resize handle not found for resize functionality');
         return;
     }
 
@@ -994,7 +1068,7 @@ function setupSidebarResize() {
         // Change cursor for the entire document during resize
         document.body.style.cursor = 'ew-resize';
 
-        console.log('Started resizing sidebar');
+        // console.log('Started resizing sidebar');
     });
 
     document.addEventListener('mousemove', function (e) {
@@ -1035,7 +1109,7 @@ function setupSidebarResize() {
         const currentWidth = sidebar.offsetWidth;
         localStorage.setItem('orion-sidebar-width', currentWidth.toString());
 
-        console.log('Finished resizing sidebar, saved width:', currentWidth);
+        // console.log('Finished resizing sidebar, saved width:', currentWidth);
     });
 
     // Handle touch events for mobile support
@@ -1072,6 +1146,6 @@ function setupSidebarResize() {
         const currentWidth = sidebar.offsetWidth;
         localStorage.setItem('orion-sidebar-width', currentWidth.toString());
 
-        console.log('Finished touch resizing sidebar, saved width:', currentWidth);
+        // console.log('Finished touch resizing sidebar, saved width:', currentWidth);
     });
 }

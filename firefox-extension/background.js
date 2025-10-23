@@ -26,10 +26,10 @@ function getServerUrl() {
 
 // Listen for fetch-conversation requests from content script
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Background script: Received message:', request.type);
+    // console.log('Background script: Received message:', request.type);
 
     if (request.type === 'get-settings') {
-        console.log('Background script: Getting settings');
+        // console.log('Background script: Getting settings');
         browser.storage.local.get('orionSettings', (result) => {
             const settings = result.orionSettings || DEFAULT_SETTINGS;
             sendResponse({ success: true, settings: settings });
@@ -38,7 +38,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'get-server-url') {
-        console.log('Background script: Providing server URL');
+        // console.log('Background script: Providing server URL');
         getServerUrl().then(serverUrl => {
             sendResponse({ success: true, serverUrl: serverUrl });
         });
@@ -47,11 +47,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.type === 'fetch-conversation') {
         getServerUrl().then(serverUrl => {
-            console.log('Background script: Attempting to fetch from', serverUrl + '/pc/items');
+            // console.log('Background script: Attempting to fetch from', serverUrl + '/pc/items');
 
             // Test if fetch API is available
             if (typeof fetch === 'undefined') {
-                console.error('Background script: fetch is not defined');
+                // console.error('Background script: fetch is not defined');
                 sendResponse({ success: false, error: 'fetch is not defined' });
                 return;
             }
@@ -65,9 +65,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 credentials: 'omit'
             })
                 .then(response => {
-                    console.log('Background script: Fetch response received');
-                    console.log('Background script: Response ok:', response.ok);
-                    console.log('Background script: Response status:', response.status);
+                    // console.log('Background script: Fetch response received');
+                    // console.log('Background script: Response ok:', response.ok);
+                    // console.log('Background script: Response status:', response.status);
                     console.log('Background script: Response headers:', [...response.headers.entries()]);
 
                     if (!response.ok) {
@@ -77,14 +77,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return response.text();
                 })
                 .then(data => {
-                    console.log('Background script: Fetch successful, data length:', data.length);
+                    // console.log('Background script: Fetch successful, data length:', data.length);
                     console.log('Background script: Data preview:', data.substring(0, 200));
                     sendResponse({ success: true, data });
                 })
                 .catch(error => {
-                    console.error('Background script: Fetch error details:', error);
-                    console.error('Background script: Error message:', error.message);
-                    console.error('Background script: Error stack:', error.stack);
+                    // console.error('Background script: Fetch error details:', error);
+                    // console.error('Background script: Error message:', error.message);
+                    // console.error('Background script: Error stack:', error.stack);
                     sendResponse({ success: false, error: error.toString() });
                 });
         });
@@ -93,7 +93,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'send-message') {
-        console.log('Background script: Sending message');
+        // console.log('Background script: Sending message');
         getServerUrl().then(serverUrl => {
             fetch(serverUrl + '/pc/message', {
                 method: 'POST',
@@ -106,11 +106,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Background script: Message sent successfully:', data);
+                    // console.log('Background script: Message sent successfully:', data);
                     sendResponse({ success: true, data });
                 })
                 .catch(error => {
-                    console.error('Background script: Message send error:', error);
+                    // console.error('Background script: Message send error:', error);
                     sendResponse({ success: false, error: error.toString() });
                 });
         });
@@ -118,7 +118,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'send-file') {
-        console.log('Background script: Sending file');
+        // console.log('Background script: Sending file');
         getServerUrl().then(serverUrl => {
             fetch(serverUrl + '/pc/file', {
                 method: 'POST',
@@ -131,7 +131,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({ success: true, data });
                 })
                 .catch(error => {
-                    console.error('Background script: File send error:', error);
+                    // console.error('Background script: File send error:', error);
                     sendResponse({ success: false, error: error.toString() });
                 });
         });
@@ -139,7 +139,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'download-file') {
-        console.log('Background script: Downloading file:', request.displayName);
+        // console.log('Background script: Downloading file:', request.displayName);
         getServerUrl().then(serverUrl => {
             const downloadUrl = `${serverUrl}/uploads/${request.uniqueFilename}`;
 
@@ -150,11 +150,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 saveAs: false // Don't show save dialog, use default download location
             })
                 .then(downloadId => {
-                    console.log('Background script: Download started with ID:', downloadId);
+                    // console.log('Background script: Download started with ID:', downloadId);
                     sendResponse({ success: true, downloadId: downloadId });
                 })
                 .catch(error => {
-                    console.error('Background script: Download error:', error);
+                    // console.error('Background script: Download error:', error);
                     sendResponse({ success: false, error: error.toString() });
                 });
         });
@@ -162,7 +162,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'youtube-video-info') {
-        console.log('Background script: Sending YouTube video info:', request.videoInfo);
+        // console.log('Background script: Sending YouTube video info:', request.videoInfo);
         getServerUrl().then(serverUrl => {
             fetch(serverUrl + '/pc/youtube-info', {
                 method: 'POST',
@@ -175,11 +175,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Background script: YouTube info sent successfully:', data);
+                    // console.log('Background script: YouTube info sent successfully:', data);
                     sendResponse({ success: true, data });
                 })
                 .catch(error => {
-                    console.error('Background script: YouTube info send error:', error);
+                    // console.error('Background script: YouTube info send error:', error);
                     sendResponse({ success: false, error: error.toString() });
                 });
         });
@@ -187,7 +187,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'connect-websocket') {
-        console.log('Background script: WebSocket connection requested from tab:', sender.tab.id);
+        // console.log('Background script: WebSocket connection requested from tab:', sender.tab.id);
         connectedTabs.add(sender.tab.id);
 
         // Start WebSocket connection if not already connected
@@ -204,7 +204,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 type: 'websocket-status',
                 connected: true
             }).catch(err => {
-                console.log('Failed to send WebSocket status to tab:', sender.tab.id, err);
+                // console.log('Failed to send WebSocket status to tab:', sender.tab.id, err);
             });
         }
 
@@ -212,7 +212,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.type === 'disconnect-websocket') {
-        console.log('Background script: WebSocket disconnection requested from tab:', sender.tab.id);
+        // console.log('Background script: WebSocket disconnection requested from tab:', sender.tab.id);
         connectedTabs.delete(sender.tab.id);
 
         // If no tabs are connected, close WebSocket
@@ -238,13 +238,13 @@ const connectedTabs = new Set();
 function connectWebSocketBackground() {
     getServerUrl().then(serverUrl => {
         const wsUrl = serverUrl.replace('http://', 'ws://') + '/pc/ws';
-        console.log('Background: Connecting to WebSocket:', wsUrl);
+        // console.log('Background: Connecting to WebSocket:', wsUrl);
 
         try {
             websocket = new WebSocket(wsUrl);
 
             websocket.onopen = function (event) {
-                console.log('Background: WebSocket connected');
+                // console.log('Background: WebSocket connected');
                 if (reconnectInterval) {
                     clearInterval(reconnectInterval);
                     reconnectInterval = null;
@@ -256,7 +256,7 @@ function connectWebSocketBackground() {
                         type: 'websocket-status',
                         connected: true
                     }).catch(err => {
-                        console.log('Failed to send WebSocket status to tab:', tabId, err);
+                        // console.log('Failed to send WebSocket status to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
                 }
@@ -264,7 +264,7 @@ function connectWebSocketBackground() {
 
             websocket.onmessage = function (event) {
                 const message = JSON.parse(event.data);
-                console.log('Background: WebSocket message received:', message);
+                // console.log('Background: WebSocket message received:', message);
 
                 // Broadcast to all connected tabs
                 for (const tabId of connectedTabs) {
@@ -272,14 +272,14 @@ function connectWebSocketBackground() {
                         type: 'websocket-data',
                         data: message
                     }).catch(err => {
-                        console.log('Failed to send to tab:', tabId, err);
+                        // console.log('Failed to send to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
                 }
             };
 
             websocket.onclose = function (event) {
-                console.log('Background: WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+                // console.log('Background: WebSocket disconnected, code:', event.code, 'reason:', event.reason);
                 websocket = null;
 
                 // Notify all connected tabs that WebSocket is disconnected
@@ -289,7 +289,7 @@ function connectWebSocketBackground() {
                         connected: false,
                         errorMessage: `Connection closed (${event.code}): ${event.reason || 'Unknown reason'}`
                     }).catch(err => {
-                        console.log('Failed to send WebSocket status to tab:', tabId, err);
+                        // console.log('Failed to send WebSocket status to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
                 }
@@ -308,7 +308,7 @@ function connectWebSocketBackground() {
             };
 
             websocket.onerror = function (error) {
-                console.error('Background: WebSocket error:', error);
+                // console.error('Background: WebSocket error:', error);
                 websocket = null;
 
                 // Notify all connected tabs that WebSocket has an error
@@ -319,7 +319,7 @@ function connectWebSocketBackground() {
                         error: true,
                         errorMessage: 'WebSocket connection error'
                     }).catch(err => {
-                        console.log('Failed to send WebSocket error status to tab:', tabId, err);
+                        // console.log('Failed to send WebSocket error status to tab:', tabId, err);
                         connectedTabs.delete(tabId);
                     });
                 }
@@ -338,7 +338,7 @@ function connectWebSocketBackground() {
             };
 
         } catch (error) {
-            console.error('Background: Failed to create WebSocket connection:', error);
+            // console.error('Background: Failed to create WebSocket connection:', error);
         }
     });
 }
