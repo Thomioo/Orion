@@ -1,9 +1,12 @@
+// YouTube video detection and time tracking
+let currentVideoTracker = null; // Track current video monitoring
+
 // Prevent multiple executions of content script
 if (window.orionContentScriptLoaded) {
-    // console.log('Content script already loaded, skipping');
+    // // console.log('Content script already loaded, skipping');
 } else {
     window.orionContentScriptLoaded = true;
-    // console.log('Orion content script loaded');
+    // // console.log('Orion content script loaded');
 
     // Check if current page is a YouTube video and start monitoring
     checkYouTubeVideo();
@@ -13,7 +16,7 @@ if (window.orionContentScriptLoaded) {
     const urlObserver = new MutationObserver(() => {
         const currentUrl = window.location.href;
         if (currentUrl !== lastUrl) {
-            // console.log('URL changed from', lastUrl, 'to', currentUrl);
+            // // console.log('URL changed from', lastUrl, 'to', currentUrl);
             lastUrl = currentUrl;
             checkYouTubeVideo();
         }
@@ -31,24 +34,25 @@ if (window.orionContentScriptLoaded) {
 
     history.pushState = function () {
         originalPushState.apply(this, arguments);
-        // console.log('History pushState detected');
+        // // console.log('History pushState detected');
         checkYouTubeVideo();
     };
 
     history.replaceState = function () {
         originalReplaceState.apply(this, arguments);
-        // console.log('History replaceState detected');
+        // // console.log('History replaceState detected');
         checkYouTubeVideo();
     };
 
     // Listen for popstate events (back/forward navigation)
     window.addEventListener('popstate', () => {
-        // console.log('Popstate event detected');
+        // // console.log('Popstate event detected');
         checkYouTubeVideo();
     });
 }
 
-// YouTube video detection and time tracking
+// YouTube video detection and time tracking functions
+
 function checkYouTubeVideo() {
     const currentUrl = window.location.href;
     // console.log('Current URL:', currentUrl);
@@ -59,6 +63,11 @@ function checkYouTubeVideo() {
         startYouTubeTimeTracking();
     } else {
         // console.log('Not a YouTube video URL');
+        // Clean up if we navigate away from a video
+        if (currentVideoTracker) {
+            clearInterval(currentVideoTracker);
+            currentVideoTracker = null;
+        }
     }
 }
 
@@ -74,6 +83,12 @@ function isYouTubeVideoUrl(url) {
 function startYouTubeTimeTracking() {
     // console.log('Starting YouTube time tracking...');
 
+    // Clear any existing tracker first
+    if (currentVideoTracker) {
+        clearInterval(currentVideoTracker);
+        currentVideoTracker = null;
+    }
+
     // Wait for video element to load
     const checkForVideo = setInterval(() => {
         const videoElement = document.querySelector('video');
@@ -86,12 +101,12 @@ function startYouTubeTimeTracking() {
             logVideoTime(videoElement);
 
             // Set up periodic time logging (every 3 seconds to reduce load)
-            const timeLogger = setInterval(() => {
-                if (document.querySelector('video') === videoElement) {
-                    // Send updates whether paused or playing to keep mobile in sync
+            currentVideoTracker = setInterval(() => {
+                if (document.querySelector('video') === videoElement && !videoElement.paused) {
+                    // Only send updates while video is playing
                     logVideoTime(videoElement);
                 }
-            }, 1000); // Reduced frequency to every 1 second
+            }, 1000); // Every 1 second while playing
 
             // Log time when video is paused/played
             videoElement.addEventListener('pause', () => {
@@ -107,36 +122,6 @@ function startYouTubeTimeTracking() {
             // Also send update when seeking
             videoElement.addEventListener('seeked', () => {
                 logVideoTime(videoElement);
-            });
-
-            // Clean up interval if user navigates away
-            const originalPushState = history.pushState;
-            const originalReplaceState = history.replaceState;
-
-            history.pushState = function () {
-                originalPushState.apply(history, arguments);
-                setTimeout(() => {
-                    if (!isYouTubeVideoUrl(window.location.href)) {
-                        clearInterval(timeLogger);
-                    }
-                }, 100);
-            };
-
-            history.replaceState = function () {
-                originalReplaceState.apply(history, arguments);
-                setTimeout(() => {
-                    if (!isYouTubeVideoUrl(window.location.href)) {
-                        clearInterval(timeLogger);
-                    }
-                }, 100);
-            };
-
-            window.addEventListener('popstate', () => {
-                setTimeout(() => {
-                    if (!isYouTubeVideoUrl(window.location.href)) {
-                        clearInterval(timeLogger);
-                    }
-                }, 100);
             });
         }
     }, 500); // Check every 500ms for video element
@@ -160,7 +145,7 @@ function logVideoTime(videoElement) {
     const timeInSeconds = Math.floor(currentTime);
     const timestampLink = createYouTubeTimestampLink(window.location.href, timeInSeconds);
 
-    // console.log(`YouTube Video Link: ${timestampLink}`);
+    // // console.log(`YouTube Video Link: ${timestampLink}`);
     // console.log(`YouTube Video Time - Elapsed: ${timeElapsed} / ${totalDuration} (${percentComplete}%)`);
 
     // Send YouTube video info to server for mobile notification
@@ -173,15 +158,15 @@ function sendYouTubeVideoInfo(videoElement, timestampLink) {
 
     // Get video title from page - try multiple selectors for better compatibility
     let title = 'YouTube Video';
-    
+
     // Try modern YouTube layout
     const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
-                        document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
-                        document.querySelector('h1 yt-formatted-string') ||
-                        document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer') ||
-                        document.querySelector('#title h1') ||
-                        document.querySelector('h1.title');
-    
+        document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+        document.querySelector('h1 yt-formatted-string') ||
+        document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer') ||
+        document.querySelector('#title h1') ||
+        document.querySelector('h1.title');
+
     if (titleElement) {
         title = titleElement.textContent.trim();
     } else {
@@ -223,11 +208,11 @@ function createYouTubeTimestampLink(currentUrl, timeInSeconds) {
         if (videoId) {
             return `https://youtu.be/${videoId}?t=${timeInSeconds}`;
         } else {
-            // console.error('Could not extract video ID from URL:', currentUrl);
+            // // console.error('Could not extract video ID from URL:', currentUrl);
             return currentUrl;
         }
     } catch (error) {
-        // console.error('Error creating timestamp link:', error);
+        // // console.error('Error creating timestamp link:', error);
         return currentUrl;
     }
 }
@@ -252,12 +237,12 @@ function extractYouTubeVideoId(url) {
     for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match && match[1]) {
-            // console.log(`Extracted video ID: ${match[1]} from URL: ${url}`);
+            // // console.log(`Extracted video ID: ${match[1]} from URL: ${url}`);
             return match[1];
         }
     }
 
-    // console.error(`Could not extract video ID from URL: ${url}`);
+    // // console.error(`Could not extract video ID from URL: ${url}`);
     return null;
 }
 
@@ -279,7 +264,7 @@ function formatTime(seconds) {
 browser.runtime.onMessage.addListener((msg) => {
     // Handle WebSocket data from background script
     if (msg.type === 'websocket-data') {
-        // console.log('Received WebSocket data from background script:', msg.data);
+        // // console.log('Received WebSocket data from background script:', msg.data);
 
         if (msg.data.type === 'initial' || msg.data.type === 'update') {
             displayConversationData(msg.data.data);
@@ -289,14 +274,14 @@ browser.runtime.onMessage.addListener((msg) => {
 
     // Handle WebSocket status updates from background script
     if (msg.type === 'websocket-status') {
-        // console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
+        // // console.log('WebSocket status update:', msg.connected, msg.error ? 'with error' : '', msg.errorMessage || '');
         websocketConnected = msg.connected;
 
         if (!msg.connected) {
             if (msg.error || msg.errorMessage) {
-                // console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
+                // // console.warn('WebSocket connection issue:', msg.errorMessage || 'Unknown error');
             }
-            // console.log('WebSocket disconnected, relying on HTTP for updates');
+            // // console.log('WebSocket disconnected, relying on HTTP for updates');
             // The background script handles reconnection attempts
         }
         return;
@@ -519,7 +504,7 @@ browser.runtime.onMessage.addListener((msg) => {
 
 // Sidebar functionality
 function setupSidebarFunctionality() {
-    // console.log('Setting up sidebar functionality');
+    // // console.log('Setting up sidebar functionality');
 
     // Load conversation data
     loadConversation();
@@ -537,14 +522,14 @@ function setupSidebarFunctionality() {
     browser.runtime.sendMessage({ type: 'get-settings' })
         .then(response => {
             if (response.success && response.settings.resizableSidebar) {
-                // console.log('Resizable sidebar enabled in settings');
+                // // console.log('Resizable sidebar enabled in settings');
                 setupSidebarResize();
             } else {
-                // console.log('Resizable sidebar disabled in settings');
+                // // console.log('Resizable sidebar disabled in settings');
             }
         })
         .catch(err => {
-            // console.error('Error getting settings, defaulting to resizable enabled:', err);
+            // // console.error('Error getting settings, defaulting to resizable enabled:', err);
             // Default to enabled if we can't get settings
             setupSidebarResize();
         });
@@ -555,7 +540,7 @@ function setupScrollPrevention() {
     const conversation = document.getElementById('conversation');
 
     if (!sidebar || !conversation) {
-        // console.error('Sidebar or conversation element not found for scroll prevention');
+        // // console.error('Sidebar or conversation element not found for scroll prevention');
         return;
     }
 
@@ -598,41 +583,41 @@ let websocketConnected = false;
 
 function connectWebSocket() {
     if (websocketConnected) {
-        // console.log('WebSocket already connected, skipping connection request');
+        // // console.log('WebSocket already connected, skipping connection request');
         return;
     }
 
-    // console.log('Requesting WebSocket connection via background script');
+    // // console.log('Requesting WebSocket connection via background script');
 
     // Request WebSocket connection through background script
     browser.runtime.sendMessage({ type: 'connect-websocket' })
         .then(response => {
             if (response.success) {
-                // console.log('WebSocket connection request sent to background script');
+                // // console.log('WebSocket connection request sent to background script');
                 // Don't set websocketConnected here - wait for websocket-status message
             } else {
-                // console.error('Failed to request WebSocket connection via background script');
+                // // console.error('Failed to request WebSocket connection via background script');
                 loadConversationHTTP();
             }
         })
         .catch(err => {
-            // console.error('Error requesting WebSocket connection:', err);
+            // // console.error('Error requesting WebSocket connection:', err);
             loadConversationHTTP();
         });
 }
 
 function loadConversation() {
-    // console.log('Loading conversation, WebSocket connected:', websocketConnected);
+    // // console.log('Loading conversation, WebSocket connected:', websocketConnected);
 
     // Always load initial data via HTTP to ensure we have current conversation
     loadConversationHTTP();
 
     // Also establish/maintain WebSocket connection for real-time updates
     if (!websocketConnected) {
-        // console.log('Establishing WebSocket connection for real-time updates');
+        // // console.log('Establishing WebSocket connection for real-time updates');
         connectWebSocket();
     } else {
-        // console.log('WebSocket already connected for real-time updates');
+        // // console.log('WebSocket already connected for real-time updates');
     }
 }
 
@@ -642,17 +627,17 @@ function loadConversationHTTP() {
             if (response.success) {
                 try {
                     const data = JSON.parse(response.data);
-                    // console.log('Loaded flow data via HTTP:', data);
+                    // // console.log('Loaded flow data via HTTP:', data);
                     displayConversationData(data);
                 } catch (e) {
-                    // console.error('Error parsing flow data:', e);
+                    // // console.error('Error parsing flow data:', e);
                 }
             } else {
-                // console.error('Error fetching conversation:', response.error);
+                // // console.error('Error fetching conversation:', response.error);
             }
         })
         .catch(err => {
-            // console.error('Error communicating with background script:', err);
+            // // console.error('Error communicating with background script:', err);
         });
 }
 
@@ -675,7 +660,7 @@ function startPolling() {
 
 function stopPolling() {
     if (pollingInterval) {
-        // console.log('Stopping HTTP polling');
+        // // console.log('Stopping HTTP polling');
         clearInterval(pollingInterval);
         pollingInterval = null;
     }
@@ -684,7 +669,7 @@ function stopPolling() {
 function displayConversationData(data) {
     const conversationDiv = document.getElementById('conversation');
     if (!conversationDiv) {
-        // console.error('Conversation div not found');
+        // // console.error('Conversation div not found');
         return;
     }
 
@@ -802,40 +787,40 @@ function setupIcons() {
         const orionIcon = document.getElementById('orionIcon');
         if (orionIcon) {
             const headerIconUrl = browser.runtime.getURL('imgs/icon_shiny.png');
-            // console.log('Setting header icon URL:', headerIconUrl);
+            // // console.log('Setting header icon URL:', headerIconUrl);
             orionIcon.src = headerIconUrl;
 
             orionIcon.onerror = function () {
-                // console.log('Header icon failed to load');
+                // // console.log('Header icon failed to load');
             };
 
             orionIcon.onload = function () {
-                // console.log('Header icon loaded successfully');
+                // // console.log('Header icon loaded successfully');
             };
         } else {
-            // console.error('orionIcon element not found');
+            // // console.error('orionIcon element not found');
         }
 
         // Set up attachment icon
         const attachIcon = document.getElementById('attachIcon');
         if (attachIcon) {
             const iconUrl = browser.runtime.getURL('imgs/attachment.png');
-            // console.log('Setting attachment icon URL:', iconUrl);
+            // // console.log('Setting attachment icon URL:', iconUrl);
             attachIcon.src = iconUrl;
 
             // Add error handling for image load
             attachIcon.onerror = function () {
-                // console.log('Attachment image failed to load, falling back to emoji');
+                // // console.log('Attachment image failed to load, falling back to emoji');
             };
 
             attachIcon.onload = function () {
-                // console.log('Attachment image loaded successfully');
+                // // console.log('Attachment image loaded successfully');
             };
         } else {
-            // console.error('attachIcon element not found');
+            // // console.error('attachIcon element not found');
         }
     } else {
-        // console.error('browser.runtime not available');
+        // // console.error('browser.runtime not available');
     }
 }
 
@@ -852,12 +837,12 @@ function setupAttachButton() {
 
         fileInput.addEventListener('change', function () {
             if (this.files.length > 0) {
-                // console.log('File selected:', this.files[0].name);
+                // // console.log('File selected:', this.files[0].name);
                 sendFile(this.files[0]);
             }
         });
     } else {
-        // console.error('Attach button or file input not found');
+        // // console.error('Attach button or file input not found');
     }
 
     // Set up input field functionality
@@ -869,7 +854,7 @@ function setupAttachButton() {
             }
         });
     } else {
-        // console.error('Input field not found');
+        // // console.error('Input field not found');
     }
 }
 
@@ -890,7 +875,7 @@ function generateQRCode(text, elementId) {
 }
 
 function setupQRCode() {
-    // console.log('Setting up QR code');
+    // // console.log('Setting up QR code');
 
     // Get server settings and generate QR code
     browser.runtime.sendMessage({ type: 'get-settings' })
@@ -917,10 +902,10 @@ function setupQRCode() {
                 qrUrlElement.textContent = mobileUrl;
             }
 
-            // console.log('QR code set up for URL:', mobileUrl);
+            // // console.log('QR code set up for URL:', mobileUrl);
         })
         .catch(error => {
-            // console.error('Error setting up QR code:', error);
+            // // console.error('Error setting up QR code:', error);
             // Fallback URL
             const fallbackUrl = 'http://192.168.2.101:8000/mobile';
             generateQRCode(fallbackUrl, 'qrCode');
@@ -937,7 +922,7 @@ function setupQRCode() {
     if (typeof browser !== 'undefined' && browser.storage) {
         browser.storage.onChanged.addListener(function (changes, namespace) {
             if (namespace === 'local' && changes.orionSettings) {
-                // console.log('Settings changed, updating QR code');
+                // // console.log('Settings changed, updating QR code');
                 setupQRCode();
             }
         });
@@ -949,7 +934,7 @@ function checkMessagesAndToggleQR() {
     const qrContainer = document.getElementById('qrContainer');
 
     if (!conversation || !qrContainer) {
-        // console.log('Elements not found for QR toggle');
+        // // console.log('Elements not found for QR toggle');
         return;
     }
 
@@ -966,28 +951,28 @@ function checkMessagesAndToggleQR() {
     if (hasRealMessages) {
         // Use direct style manipulation for higher specificity
         qrContainer.style.setProperty('display', 'none', 'important');
-        // console.log('QR code hidden - messages present');
+        // // console.log('QR code hidden - messages present');
     } else {
         // Show the QR container
         qrContainer.style.setProperty('display', 'flex', 'important');
-        // console.log('QR code shown - no messages');
+        // // console.log('QR code shown - no messages');
     }
 }
 
 function sendMessage() {
     const inputField = document.getElementById('inputField');
     if (!inputField) {
-        // console.error('Input field not found');
+        // // console.error('Input field not found');
         return;
     }
 
     const messageText = inputField.value.trim();
     if (!messageText) {
-        // console.log('Empty message, not sending');
+        // // console.log('Empty message, not sending');
         return;
     }
 
-    // console.log('Sending message:', messageText);
+    // // console.log('Sending message:', messageText);
 
     // Send message via background script
     browser.runtime.sendMessage({
@@ -996,21 +981,21 @@ function sendMessage() {
     })
         .then(response => {
             if (response.success) {
-                // console.log('Message sent successfully:', response);
+                // // console.log('Message sent successfully:', response);
                 inputField.value = ''; // Clear input field
-                // console.log('Waiting for WebSocket update, connected:', websocketConnected);
+                // // console.log('Waiting for WebSocket update, connected:', websocketConnected);
                 // WebSocket will handle the update automatically
             } else {
-                // console.error('Error sending message:', response.error);
+                // // console.error('Error sending message:', response.error);
             }
         })
         .catch(err => {
-            // console.error('Error communicating with background script:', err);
+            // // console.error('Error communicating with background script:', err);
         });
 }
 
 function sendFile(file) {
-    // console.log('Sending file:', file.name);
+    // // console.log('Sending file:', file.name);
 
     // Create FormData for file upload
     const formData = new FormData();
@@ -1023,7 +1008,7 @@ function sendFile(file) {
     })
         .then(response => {
             if (response.success) {
-                // console.log('File sent successfully:', response);
+                // // console.log('File sent successfully:', response);
                 // Clear file input
                 const fileInput = document.getElementById('fileInput');
                 if (fileInput) {
@@ -1031,16 +1016,16 @@ function sendFile(file) {
                 }
                 // WebSocket will handle the update automatically
             } else {
-                // console.error('Error sending file:', response.error);
+                // // console.error('Error sending file:', response.error);
             }
         })
         .catch(err => {
-            // console.error('Error communicating with background script:', err);
+            // // console.error('Error communicating with background script:', err);
         });
 }
 
 function downloadFile(uniqueFilename, displayName) {
-    // console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
+    // // console.log('Downloading file:', displayName, 'unique:', uniqueFilename);
 
     // Use background script's download handler to avoid HTTP warnings
     browser.runtime.sendMessage({
@@ -1050,13 +1035,13 @@ function downloadFile(uniqueFilename, displayName) {
     })
         .then(response => {
             if (response.success) {
-                // console.log('File download started successfully, ID:', response.downloadId);
+                // // console.log('File download started successfully, ID:', response.downloadId);
             } else {
-                // console.error('Failed to start download:', response.error);
+                // // console.error('Failed to start download:', response.error);
             }
         })
         .catch(err => {
-            // console.error('Error communicating with background script for download:', err);
+            // // console.error('Error communicating with background script for download:', err);
         });
 }
 
@@ -1065,7 +1050,7 @@ function setupSidebarResize() {
     const resizeHandle = document.getElementById('sleek-sidebar-resize-handle');
 
     if (!sidebar || !resizeHandle) {
-        // console.error('Sidebar or resize handle not found for resize functionality');
+        // // console.error('Sidebar or resize handle not found for resize functionality');
         return;
     }
 
@@ -1088,7 +1073,7 @@ function setupSidebarResize() {
         // Change cursor for the entire document during resize
         document.body.style.cursor = 'ew-resize';
 
-        // console.log('Started resizing sidebar');
+        // // console.log('Started resizing sidebar');
     });
 
     document.addEventListener('mousemove', function (e) {
@@ -1129,7 +1114,7 @@ function setupSidebarResize() {
         const currentWidth = sidebar.offsetWidth;
         localStorage.setItem('orion-sidebar-width', currentWidth.toString());
 
-        // console.log('Finished resizing sidebar, saved width:', currentWidth);
+        // // console.log('Finished resizing sidebar, saved width:', currentWidth);
     });
 
     // Handle touch events for mobile support
@@ -1166,6 +1151,6 @@ function setupSidebarResize() {
         const currentWidth = sidebar.offsetWidth;
         localStorage.setItem('orion-sidebar-width', currentWidth.toString());
 
-        // console.log('Finished touch resizing sidebar, saved width:', currentWidth);
+        // // console.log('Finished touch resizing sidebar, saved width:', currentWidth);
     });
 }
