@@ -22,7 +22,7 @@ Orion is a sleek, real-time communication bridge between your PC and mobile devi
 ### 1. Download & Setup
 
 1. Download the latest Orion release
-2. Extract to your desired folder (e.g., `C:\Projects\Orion\`)
+2. Extract to your desired folder (e.g., `C:\Users\%USER%\Orion\`)
 3. Run `orion.exe` (Windows) or `go run main.go` (other platforms)
 
 ### 2. Install Browser Extension
