@@ -32,6 +32,15 @@ var iconData []byte
 //go:embed server-settings.html
 var settingsHTML []byte
 
+//go:embed mobile/index.html
+var mobileIndexHTML []byte
+
+//go:embed mobile/imgs/attach.png
+var mobileAttachImg []byte
+
+//go:embed mobile/imgs/icon_shiny.png
+var mobileIconShinyImg []byte
+
 func findAvailablePort(startPort string) string {
 	port := startPort
 	for i := 0; i < 10; i++ { // Try up to 10 different ports
@@ -66,6 +75,12 @@ func startServer() {
 		serverHost = serverSettings.ServerHost
 	} else {
 		serverHost = getLocalIP()
+	}
+
+	// Extract embedded mobile files to disk
+	if err := extractMobileFiles(); err != nil {
+		fmt.Printf("[ERROR] Failed to extract mobile files: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Ensure uploads directory exists
@@ -142,6 +157,43 @@ func getLocalIP() string {
 		}
 	}
 	return ""
+}
+
+// Extract embedded mobile files to disk
+func extractMobileFiles() error {
+	fmt.Printf("[DEBUG] Extracting embedded mobile files\n")
+
+	// Create mobile directory structure
+	mobileDir := "mobile"
+	mobileImgsDir := filepath.Join(mobileDir, "imgs")
+
+	if err := os.MkdirAll(mobileImgsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create mobile directories: %w", err)
+	}
+
+	// Extract mobile/index.html
+	indexPath := filepath.Join(mobileDir, "index.html")
+	if err := os.WriteFile(indexPath, mobileIndexHTML, 0644); err != nil {
+		return fmt.Errorf("failed to write mobile/index.html: %w", err)
+	}
+	fmt.Printf("[DEBUG] Extracted: %s\n", indexPath)
+
+	// Extract mobile/imgs/attach.png
+	attachPath := filepath.Join(mobileImgsDir, "attach.png")
+	if err := os.WriteFile(attachPath, mobileAttachImg, 0644); err != nil {
+		return fmt.Errorf("failed to write mobile/imgs/attach.png: %w", err)
+	}
+	fmt.Printf("[DEBUG] Extracted: %s\n", attachPath)
+
+	// Extract mobile/imgs/icon_shiny.png
+	iconShinyPath := filepath.Join(mobileImgsDir, "icon_shiny.png")
+	if err := os.WriteFile(iconShinyPath, mobileIconShinyImg, 0644); err != nil {
+		return fmt.Errorf("failed to write mobile/imgs/icon_shiny.png: %w", err)
+	}
+	fmt.Printf("[DEBUG] Extracted: %s\n", iconShinyPath)
+
+	fmt.Printf("[DEBUG] Mobile files extracted successfully\n")
+	return nil
 }
 
 // Get current server host (from settings or auto-detect)

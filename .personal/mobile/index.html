@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Orion Mobile</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #222;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            box-sizing: border-box;
+        }
+
+        .header {
+            padding: 20px;
+            font-size: 2em;
+            margin: 0;
+            border: none;
+            background: #222;
+            color: inherit;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        #conversation {
+            position: fixed;
+            top: 80px;
+            bottom: 75px;
+            left: 0;
+            right: 0;
+            overflow-y: auto;
+            padding: 10px;
+            border: none;
+            background: transparent;
+        }
+
+        .input-container {
+            padding-bottom: 15px;
+            border: none;
+            background: transparent;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: #222;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 95%;
+            margin: 0 auto;
+            border: none;
+            background: transparent;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #inputField {
+            flex: 1;
+            padding: 12px 50px 12px 15px;
+            font-size: 1em;
+            border-radius: 1em;
+            border: 2px solid #444;
+            background: #333;
+            color: #fff;
+            outline: none;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        #sendButton {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: #2B5A87;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        #sendButton:hover {
+            opacity: 0.8;
+        }
+
+        #sendButton:active {
+            opacity: 0.6;
+        }
+
+        #sendButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #inputField:focus {
+            border-color: #666;
+        }
+
+        #inputField::placeholder {
+            color: #aaa;
+        }
+
+        #attachFileButton {
+            position: absolute;
+            right: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+            padding: 0;
+        }
+
+        #attachFileButton img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+        }
+
+        #attachFileButton:hover {
+            opacity: 0.7;
+        }
+
+        #attachFileButton:active {
+            opacity: 0.5;
+        }
+
+        /* Message styles matching the extension exactly */
+        .message {
+            margin: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.from-PC {
+            background: #333;
+            color: white;
+            margin-left: 10px;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        .message.from-phone {
+            background: #2B5A87;
+            color: white;
+            margin-left: auto;
+            margin-right: 10px;
+            text-align: right;
+        }
+
+        .message .timestamp {
+            font-size: 0.7em;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .file-link {
+            color: #4A9EFF;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #aaa;
+            padding: 20px;
+        }
+
+        /* YouTube popup styles */
+        .youtube-popup {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: #2B5A87;
+            color: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            touch-action: pan-y;
+            user-select: none;
+        }
+
+        .youtube-popup.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .youtube-popup.minimized {
+            transform: translateY(-80%);
+            opacity: 0.8;
+            padding: 8px 16px;
+        }
+
+        .youtube-popup.minimized .info,
+        .youtube-popup.minimized .buttons {
+            display: none;
+        }
+
+        .youtube-popup.minimized .title {
+            font-size: 14px;
+            margin-bottom: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .youtube-popup .title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .youtube-popup .info {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #E0E0E0;
+        }
+
+        .youtube-popup .info strong {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .youtube-popup .time-info {
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .youtube-popup .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .youtube-popup .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .youtube-popup .btn-primary {
+            background: #4A9EFF;
+            color: white;
+        }
+
+        .youtube-popup .btn-secondary {
+            background: #666;
+            color: white;
+        }
+
+        .youtube-popup .btn:hover {
+            opacity: 0.8;
+        }
+
+        .youtube-popup .btn:active {
+            opacity: 0.6;
+        }
+
+        img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <img id="orionIcon" alt="" src="/imgs/icon_shiny.png">
+        Orion
+    </div>
+    <div id="conversation"></div>
+
+    <div id="youtubePopup" class="youtube-popup">
+        <div class="title">YouTube video playing on PC</div>
+        <div class="info" id="youtubeInfo"></div>
+        <div class="buttons">
+            <button class="btn btn-primary" id="continueOnPhone">Continue on Phone</button>
+            <button class="btn btn-secondary" id="dismissPopup">Dismiss</button>
+        </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <input type="text" id="inputField" placeholder="Type here...">
+            <input type="file" id="fileInput" style="display: none;">
+            <button id="attachFileButton" title="Attach File">
+                <img src="/imgs/attach.png" alt="📎">
+            </button>
+            <button id="sendButton" title="Send Message">➤</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_URL = window.location.origin;
+        const WS_URL = `ws://${window.location.host}/mobile/ws`;
+        let isLoading = false;
+        let websocket = null;
+        let reconnectInterval = null;
+
+        // DOM elements
+        const conversation = document.getElementById('conversation');
+        const inputField = document.getElementById('inputField');
+        const attachFileButton = document.getElementById('attachFileButton');
+        const fileInput = document.getElementById('fileInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('Orion Mobile initialized');
+            setupEventListeners();
+            connectWebSocket();
+        });
+
+        function connectWebSocket() {
+            console.log('Connecting to WebSocket:', WS_URL);
+
+            try {
+                websocket = new WebSocket(WS_URL);
+
+                websocket.onopen = function (event) {
+                    console.log('WebSocket connected');
+                    if (reconnectInterval) {
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }
+                };
+
+                websocket.onmessage = function (event) {
+                    const message = JSON.parse(event.data);
+                    console.log('WebSocket message received:', message);
+
+                    if (message.type === 'initial' || message.type === 'update') {
+                        displayConversation(message.data);
+                    } else if (message.type === 'youtube_info') {
+                        console.log('YouTube info received:', message.data);
+                        handleYouTubeInfo(message.data);
+                    } else {
+                        console.log('Unknown message type:', message.type);
+                    }
+                };
+
+                websocket.onclose = function (event) {
+                    console.log('WebSocket disconnected, attempting to reconnect...');
+                    websocket = null;
+
+                    // Attempt to reconnect every 3 seconds
+                    if (!reconnectInterval) {
+                        reconnectInterval = setInterval(() => {
+                            connectWebSocket();
+                        }, 3000);
+                    }
+                };
+
+                websocket.onerror = function (error) {
+                    console.error('WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                // Fallback to HTTP polling if WebSocket fails
+                loadConversationHTTP();
+            }
+        }
+
+        function hideLoadingIndicator() {
+            // No loading indicator in the simple design
+        }
+
+        function loadConversationHTTP() {
+            console.log('Loading conversation via HTTP...');
+
+            fetch(`${SERVER_URL}/mobile/items`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Loaded conversation data:', data);
+                    displayConversation(data);
+                })
+                .catch(error => {
+                    console.error('Error loading conversation:', error);
+                    displayError('Failed to load conversation');
+                });
+        }
+
+        let lastMessageCount = 0;
+
+        function displayConversation(data) {
+            // Only rebuild if this is the initial load or if messages were deleted
+            if (conversation.children.length === 0 || (data.items && data.items.length < lastMessageCount)) {
+                // Clear existing content for fresh start
+                conversation.innerHTML = '';
+                lastMessageCount = 0;
+            }
+
+            // Process items if they exist
+            if (data.items && data.items.length > 0) {
+                // Clear empty state if it exists and we have messages
+                const emptyState = conversation.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+
+                // Only add new messages (skip already displayed ones)
+                const newMessages = data.items.slice(lastMessageCount);
+
+                newMessages.forEach(item => {
+                    console.log(`Adding new item from ${item.from}: ${item.content} (${item.type})`);
+
+                    // Create message element
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message from-${item.from}`;
+
+                    // Add content based on type
+                    if (item.type === 'text') {
+                        // Check if content contains URLs and make them clickable
+                        const urlRegex = /(https?:\/\/[^\s]+)/g;
+                        if (urlRegex.test(item.content)) {
+                            // Content has URLs, replace with clickable links
+                            const htmlContent = item.content.replace(urlRegex, '<a href="$1" target="_blank" style="color: #4A9EFF; text-decoration: underline;">$1</a>');
+                            messageDiv.innerHTML = htmlContent;
+                        } else {
+                            // No URLs, just set as text
+                            messageDiv.textContent = item.content;
+                        }
+                    } else if (item.type === 'file') {
+                        // Parse filename and unique filename from content
+                        const parts = item.content.split('|');
+                        const displayName = parts[0];
+                        const uniqueFilename = parts[1] || parts[0]; // fallback for old format
+
+                        // Make file message clickable for download
+                        const fileSpan = document.createElement('span');
+                        fileSpan.className = 'file-link';
+                        fileSpan.textContent = displayName;
+                        fileSpan.addEventListener('click', function () {
+                            downloadFile(uniqueFilename, displayName);
+                        });
+
+                        messageDiv.appendChild(fileSpan);
+                    }
+
+                    // Add timestamp
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'timestamp';
+                    const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    timeDiv.textContent = `${item.from} • ${time}`;
+                    messageDiv.appendChild(timeDiv);
+
+                    conversation.appendChild(messageDiv);
+                });
+
+                // Update the count of displayed messages
+                lastMessageCount = data.items.length;
+
+                // Only scroll to bottom if we added new messages
+                if (newMessages.length > 0) {
+                    setTimeout(() => {
+                        conversation.scrollTop = conversation.scrollHeight;
+                    }, 10);
+                }
+            } else {
+                // Only show empty state if conversation is truly empty
+                if (conversation.children.length === 0) {
+                    conversation.innerHTML = '<div class="empty-state">No messages yet</div>';
+                }
+            }
+        }
+
+        function sendMessage() {
+            const messageText = inputField.value.trim();
+            if (!messageText || isLoading) {
+                return;
+            }
+
+            console.log('Sending message:', messageText);
+            setLoading(true);
+
+            fetch(`${SERVER_URL}/mobile/message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: messageText })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                }).then(response => {
+                    console.log('Message sent successfully:', response);
+                    inputField.value = '';
+                    updateSendButton();
+                    // Keep focus on input to prevent keyboard from hiding
+                    // WebSocket will handle the update automatically
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                    displayError('Failed to send message');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        }
+
+        function sendFile(file) {
+            if (isLoading) {
+                return;
+            }
+
+            console.log('Sending file:', file.name);
+            setLoading(true);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch(`${SERVER_URL}/mobile/file`, {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(response => {
+                    console.log('File sent successfully:', response);
+                    fileInput.value = '';
+                    // WebSocket will handle the update automatically
+                })
+                .catch(error => {
+                    console.error('Error sending file:', error);
+                    displayError('Failed to send file');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        }
+
+        function downloadFile(uniqueFilename, displayName) {
+            console.log('Downloading file:', displayName);
+
+            const downloadUrl = `${SERVER_URL}/uploads/${uniqueFilename}`;
+
+            // Create a temporary link and click it to trigger download
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = displayName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function setLoading(loading) {
+            isLoading = loading;
+            updateSendButton();
+
+            if (loading) {
+                inputField.disabled = true;
+                attachFileButton.disabled = true;
+                sendButton.disabled = true;
+            } else {
+                inputField.disabled = false;
+                attachFileButton.disabled = false;
+                sendButton.disabled = false;
+                // Don't auto-focus after loading to prevent keyboard flicker
+            }
+        }
+
+        function displayError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message';
+            errorDiv.style.background = '#ff4444';
+            errorDiv.style.color = 'white';
+            errorDiv.style.margin = '10px auto';
+            errorDiv.style.textAlign = 'center';
+            errorDiv.innerHTML = message;
+
+            conversation.appendChild(errorDiv);
+            conversation.scrollTop = conversation.scrollHeight;
+
+            // Remove error message after 3 seconds
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 3000);
+        }
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }        // YouTube video notification handling
+        let currentVideoInfo = null;
+        let updateInterval = null;
+        let popupState = 'hidden'; // 'hidden', 'expanded', 'minimized'
+        let dismissedVideoId = null; // Track dismissed video to prevent immediate re-popup
+        let lastPlayState = null; // Track play/pause state to detect changes
+
+        function handleYouTubeInfo(videoInfo) {
+            console.log('handleYouTubeInfo called with:', videoInfo);
+
+            // Always update the video info
+            currentVideoInfo = videoInfo;
+
+            // Determine if we should show popup
+            const shouldShowPopup = shouldShowYouTubePopup(videoInfo);
+
+            if (shouldShowPopup && popupState === 'hidden') {
+                showYouTubePopup(videoInfo);
+            } else if (popupState !== 'hidden') {
+                // Just update the content without changing state
+                updateYouTubePopupInfo();
+            }
+
+            // Update last play state for future comparisons
+            lastPlayState = videoInfo.isPlaying;
+        }
+
+        function shouldShowYouTubePopup(videoInfo) {
+            // Don't show if this video was recently dismissed and nothing significant changed
+            if (dismissedVideoId === videoInfo.videoId) {
+                // Only show again if play state changed (play/pause toggle)
+                if (lastPlayState !== null && lastPlayState !== videoInfo.isPlaying) {
+                    console.log('Play state changed for dismissed video, allowing popup');
+                    dismissedVideoId = null; // Reset dismissed state
+                    return true;
+                }
+                console.log('Video was dismissed and no significant change detected, not showing popup');
+                return false;
+            }
+
+            // Show for new videos or if no video was dismissed
+            console.log('New video or no previous dismissal, showing popup');
+            return true;
+        }
+
+        function showYouTubePopup(videoInfo) {
+            console.log('showYouTubePopup called with:', videoInfo);
+            const popup = document.getElementById('youtubePopup');
+            const infoDiv = document.getElementById('youtubeInfo');
+
+            if (!popup || !infoDiv) {
+                console.error('YouTube popup elements not found');
+                return;
+            }
+
+            // Store video info
+            currentVideoInfo = videoInfo;
+            popup.dataset.videoInfo = JSON.stringify(videoInfo);
+
+            // Clear dismissed video ID since we're showing popup
+            dismissedVideoId = null;
+
+            // Update popup content
+            updateYouTubePopupInfo();
+
+            // Show popup in expanded state (remove any previous states)
+            console.log('Showing YouTube popup in expanded state');
+            popup.classList.remove('minimized');
+            popup.classList.add('show');
+            popupState = 'expanded';
+
+            // Start real-time time updates if video is playing
+            startTimeUpdates();
+
+            // NO auto-minimize - let user control the state completely
+        }
+
+        function updateYouTubePopupInfo() {
+            if (!currentVideoInfo) return;
+
+            const infoDiv = document.getElementById('youtubeInfo');
+            if (!infoDiv) return;
+
+            const currentTime = formatTime(currentVideoInfo.currentTime);
+            const duration = formatTime(currentVideoInfo.duration);
+
+            infoDiv.innerHTML = `
+                <div><strong>${escapeHtml(currentVideoInfo.title)}</strong></div>
+                <div class="time-info">Playing at ${currentTime} / ${duration}</div>
+            `;
+        }
+
+        function startTimeUpdates() {
+            // Clear existing interval
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+
+            // Update time every second if video is playing
+            updateInterval = setInterval(() => {
+                if (currentVideoInfo && currentVideoInfo.isPlaying) {
+                    currentVideoInfo.currentTime++;
+                    updateYouTubePopupInfo();
+                }
+            }, 1000);
+        }
+
+        function stopTimeUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        function minimizePopup() {
+            const popup = document.getElementById('youtubePopup');
+            // Ensure popup stays visible but becomes minimized
+            popup.classList.add('show', 'minimized');
+            popupState = 'minimized';
+            console.log('Popup minimized by user');
+        }
+
+        function expandPopup() {
+            const popup = document.getElementById('youtubePopup');
+            // Keep popup visible but remove minimized state
+            popup.classList.add('show');
+            popup.classList.remove('minimized');
+            popupState = 'expanded';
+            console.log('Popup expanded by user');
+        }
+
+        function dismissPopup() {
+            const popup = document.getElementById('youtubePopup');
+            popup.classList.remove('show', 'minimized');
+            popupState = 'hidden';
+            stopTimeUpdates();
+
+            // Store the dismissed video ID to prevent immediate re-popup
+            if (currentVideoInfo) {
+                dismissedVideoId = currentVideoInfo.videoId;
+                console.log('Video dismissed:', dismissedVideoId);
+            }
+
+            currentVideoInfo = null;
+            console.log('Popup dismissed by user');
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) return '0:00';
+
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function setupEventListeners() {
+            // Send button click
+            sendButton.addEventListener('click', function () {
+                sendMessage();
+            });
+
+            // Input field enter key
+            inputField.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Input field changes (enable/disable send button)
+            inputField.addEventListener('input', function () {
+                updateSendButton();
+            });
+
+            // Attach file button
+            attachFileButton.addEventListener('click', function () {
+                fileInput.click();
+            });
+
+            // File input change
+            fileInput.addEventListener('change', function () {
+                if (this.files.length > 0) {
+                    console.log('File selected:', this.files[0].name);
+                    sendFile(this.files[0]);
+                }
+            });            // YouTube popup buttons
+            document.getElementById('continueOnPhone').addEventListener('click', function (e) {
+                e.stopPropagation(); // Prevent event bubbling
+
+                if (currentVideoInfo && currentVideoInfo.timestampLink) {
+                    // Update the timestamp link with current time
+                    const videoId = currentVideoInfo.videoId;
+                    const updatedLink = `https://youtu.be/${videoId}?t=${currentVideoInfo.currentTime}`;
+
+                    // Open the YouTube video at the current timestamp
+                    window.open(updatedLink, '_blank');
+                }
+
+                // Minimize popup after opening (changed from dismissPopup)
+                minimizePopup();
+            });
+
+            document.getElementById('dismissPopup').addEventListener('click', function (e) {
+                e.stopPropagation();
+                dismissPopup();
+            });
+
+            // Initialize YouTube popup swipe handling
+            setupYouTubePopupSwipe();
+
+            // Prevent zoom on double tap
+            document.addEventListener('touchend', function (e) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+        }
+
+        let lastTouchEnd = 0;
+
+        function updateSendButton() {
+            const hasText = inputField.value.trim().length > 0;
+            sendButton.disabled = !hasText || isLoading;
+
+            if (hasText && !isLoading) {
+                sendButton.style.opacity = '1';
+            } else {
+                sendButton.style.opacity = '0.5';
+            }
+        }
+
+        // Auto-focus input field on page load (mobile-friendly)
+        window.addEventListener('load', function () {
+            // Small delay to ensure the page is fully loaded
+            setTimeout(() => {
+                inputField.focus();
+            }, 100);
+        });
+
+        // Swipe gesture handling for YouTube popup
+        function setupYouTubePopupSwipe() {
+            const popup = document.getElementById('youtubePopup');
+            let startY = 0;
+            let currentY = 0;
+            let isDragging = false;
+            let startTime = 0;
+            let dragStartedOnButton = false;
+
+            popup.addEventListener('touchstart', function (e) {
+                startY = e.touches[0].clientY;
+                currentY = startY;
+                isDragging = true;
+                startTime = Date.now();
+
+                // Check if touch started on a button
+                dragStartedOnButton = e.target.tagName === 'BUTTON';
+
+                popup.style.transition = 'none';
+            }, { passive: true });
+
+            popup.addEventListener('touchmove', function (e) {
+                if (!isDragging || dragStartedOnButton) return;
+
+                currentY = e.touches[0].clientY;
+                const deltaY = currentY - startY;
+                const isMinimized = popup.classList.contains('minimized');
+
+                if (isMinimized) {
+                    // When minimized, allow downward movement to show expansion preview
+                    if (deltaY > -20 && deltaY < 100) {
+                        const translateY = Math.min(deltaY, 50);
+                        popup.style.transform = `translateY(${translateY}px)`;
+                    }
+                } else {
+                    // When expanded, allow movement in both directions
+                    if (deltaY > -100 && deltaY < 100) {
+                        const translateY = Math.max(Math.min(deltaY, 100), -100);
+                        popup.style.transform = `translateY(${translateY}px)`;
+                    }
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            popup.addEventListener('touchend', function (e) {
+                if (!isDragging) return;
+
+                isDragging = false;
+
+                // If drag started on button, don't process as swipe gesture
+                if (dragStartedOnButton) {
+                    dragStartedOnButton = false;
+                    popup.style.transition = 'all 0.3s ease';
+                    popup.style.transform = '';
+                    return;
+                }
+
+                const deltaY = currentY - startY;
+                const deltaTime = Date.now() - startTime;
+                const velocityY = Math.abs(deltaY) / deltaTime;
+                const isMinimized = popup.classList.contains('minimized');
+
+                console.log('Touch end:', { deltaY, velocityY, isMinimized, popupState });
+
+                // Vertical gesture behavior
+                if (isMinimized) {
+                    // When minimized:
+                    if (deltaY > 30 || (deltaY > 15 && velocityY > 0.4)) {
+                        // Swipe down when minimized - expand
+                        console.log('Expanding popup from minimized state');
+                        popup.style.transition = 'all 0.3s ease';
+                        popup.style.transform = '';
+                        expandPopup();
+                    } else if (deltaY < -100 || (deltaY < -60 && velocityY > 1.0)) {
+                        // Very strong swipe up when minimized - dismiss (made much less sensitive)
+                        console.log('Dismissing popup from minimized state');
+                        popup.style.transition = 'all 0.3s ease';
+                        popup.style.transform = '';
+                        dismissPopup();
+                    } else {
+                        // Small movement - reset position smoothly
+                        console.log('Resetting minimized popup position');
+                        popup.style.transition = 'all 0.3s ease';
+                        popup.style.transform = '';
+                    }
+                } else {
+                    // When expanded: ANY upward swipe should ALWAYS minimize (never dismiss)
+                    if (deltaY < -15) {
+                        // Any swipe up when expanded - always minimize (made more sensitive)
+                        console.log('Minimizing popup from expanded state');
+                        popup.style.transition = 'all 0.3s ease';
+                        popup.style.transform = '';
+                        minimizePopup();
+                    } else {
+                        // Swipe down when expanded - just reset position
+                        console.log('Resetting expanded popup position');
+                        popup.style.transition = 'all 0.3s ease';
+                        popup.style.transform = '';
+                    }
+                }
+            }, { passive: true });
+
+            // Click handler for minimized popup to expand (but not on buttons)
+            popup.addEventListener('click', function (e) {
+                if (popup.classList.contains('minimized') && e.target.tagName !== 'BUTTON') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    expandPopup();
+                }
+            });
+
+            // Prevent clicks on buttons from expanding when minimized
+            const buttons = popup.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', function (e) {
+                    if (popup.classList.contains('minimized')) {
+                        e.stopPropagation();
+                        // Don't prevent default here, let button handle it
+                    }
+                });
+            });
+        }
+
+        // Initialize swipe handling
+        setupYouTubePopupSwipe();
+    </script>
+</body>
+
+</html>
