@@ -514,6 +514,47 @@ func ensureUploadsDir() error {
 	return nil
 }
 
+// Clear all uploaded files from the uploads directory
+func clearUploadedFiles() error {
+	fmt.Printf("[DEBUG] Clearing uploaded files from directory: %s\n", uploadsDir)
+
+	// Check if uploads directory exists
+	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
+		fmt.Printf("[DEBUG] Uploads directory doesn't exist, nothing to clear\n")
+		return nil
+	}
+
+	// Read all files in the uploads directory
+	files, err := os.ReadDir(uploadsDir)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to read uploads directory: %v\n", err)
+		return err
+	}
+
+	// Delete each file
+	deletedCount := 0
+	errorCount := 0
+	for _, file := range files {
+		if !file.IsDir() {
+			filePath := filepath.Join(uploadsDir, file.Name())
+			if err := os.Remove(filePath); err != nil {
+				fmt.Printf("[ERROR] Failed to delete file %s: %v\n", filePath, err)
+				errorCount++
+			} else {
+				deletedCount++
+			}
+		}
+	}
+
+	fmt.Printf("[DEBUG] Cleared %d uploaded files (%d errors)\n", deletedCount, errorCount)
+
+	if errorCount > 0 {
+		return fmt.Errorf("failed to delete %d files", errorCount)
+	}
+
+	return nil
+}
+
 // Handle file downloads
 func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("[DEBUG] File download requested - URL: %s\n", r.URL.Path)
@@ -1114,6 +1155,12 @@ func handleClearHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	// Delete all uploaded files
+	if err := clearUploadedFiles(); err != nil {
+		fmt.Printf("[ERROR] Clear history: Error deleting uploaded files: %v\n", err)
+		// Continue with clearing history even if file deletion fails
 	}
 
 	// Clear all items from data
