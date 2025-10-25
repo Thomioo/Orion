@@ -10,4 +10,4 @@ orion.exe~
 .zip
 Orion.xpi
 compile_command.txt
-./personal/*
+./.personal/*
